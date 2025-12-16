@@ -251,7 +251,10 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
     """
     st.header("⚙️ Configuración del Informe")
 
-    conditional_vars = plugin_config['conditional_variables']
+    conditional_vars = [
+        var for var in plugin_config['conditional_variables']
+        if getattr(var, "tipo_control", None) != "derivado"
+    ]
     simple_fields = plugin_config.get('simple_fields', [])
     local_fields = [f for f in simple_fields if getattr(f, 'ambito', 'global') == 'local']
     values = {}
@@ -293,7 +296,13 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
 
                 # Buscar y renderizar campos locales asociados a esta variable
                 local_values = render_local_fields_for_condition(
-                    var.id, value, local_fields, context, plugin_config
+                    condition_var_id=var.id,
+                    condition_value=value,
+                    local_fields=local_fields,
+                    context=context,
+                    plugin_config=plugin_config,
+                    processed_groups=processed_groups,
+                    date_groups=date_groups,
                 )
                 values.update(local_values)
                 context.update(local_values)
@@ -306,7 +315,9 @@ def render_local_fields_for_condition(
     condition_value: Any,
     local_fields: List[Any],
     context: Dict[str, Any],
-    plugin_config: Dict[str, Any]
+    plugin_config: Dict[str, Any],
+    processed_groups: set,
+    date_groups: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
     Renderiza los campos locales asociados a una variable condicional.
@@ -330,18 +341,32 @@ def render_local_fields_for_condition(
     relevant_fields = []
     for field in local_fields:
         condicion_padre = getattr(field, 'condicion_padre', None)
-        if not condicion_padre:
-            continue
+        dependencia = getattr(field, 'dependencia', None)
 
-        # Verificar si la condición involucra esta variable
-        if condition_var_id in condicion_padre:
-            # Evaluar si la condición se cumple con el contexto actual
+        include_field = False
+
+        # Verificar condiciones expresadas con condicion_padre
+        if condicion_padre and condition_var_id in condicion_padre:
             try:
                 if evaluate_condition(condicion_padre, context):
-                    relevant_fields.append(field)
+                    include_field = True
             except Exception:
                 # Si la evaluación falla (variable no existe), ignorar
                 pass
+
+        # Verificar dependencias estructuradas sobre la variable condicional
+        if not include_field and dependencia and getattr(dependencia, 'variable', None) == condition_var_id:
+            parent_value = condition_value if condition_value is not None else context.get(condition_var_id)
+            expected_value = getattr(dependencia, 'valor', None)
+            not_value = getattr(dependencia, 'valor_no', None)
+
+            if expected_value is not None:
+                include_field = parent_value == expected_value
+            elif not_value is not None:
+                include_field = parent_value != not_value
+
+        if include_field:
+            relevant_fields.append(field)
 
     # Renderizar campos relevantes en un contenedor visual
     if relevant_fields:
