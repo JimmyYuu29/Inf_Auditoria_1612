@@ -8,8 +8,8 @@ incluyendo manifests, definiciones de campos y bloques de texto.
 import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from report_platform.core.utils import setup_logger
-from report_platform.core.schema_models import (
+from core.utils import setup_logger
+from core.schema_models import (
     Manifest,
     SimpleField,
     ConditionalVariable,

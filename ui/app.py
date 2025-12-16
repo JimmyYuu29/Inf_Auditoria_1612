@@ -13,7 +13,7 @@ from datetime import datetime
 import streamlit as st
 
 # Ensure the project root is in the Python path when running directly with Streamlit
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -240,23 +240,27 @@ def render_sidebar():
 def render_conditional_variables_section(plugin_config: Dict[str, Any],
                                         context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Renderiza las variables condicionales.
+    Renderiza las variables condicionales y sus variables locales asociadas.
 
     Args:
         plugin_config: Configuración del plugin
         context: Contexto actual
 
     Returns:
-        Diccionario con valores de variables condicionales
+        Diccionario con valores de variables condicionales y locales
     """
     st.header("⚙️ Configuración del Informe")
 
     conditional_vars = plugin_config['conditional_variables']
+    simple_fields = plugin_config.get('simple_fields', [])
     values = {}
 
     if not conditional_vars:
         st.info("Este informe no tiene variables condicionales")
         return values
+
+    # Obtener campos locales (con ambito=local y condicion_padre)
+    local_fields = [f for f in simple_fields if getattr(f, 'ambito', 'global') == 'local']
 
     # Agrupar por sección
     vars_by_section = {}
@@ -280,11 +284,101 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
                     if dep.valor_no and parent_value == dep.valor_no:
                         continue
 
-                # Renderizar variable
+                # Renderizar variable condicional
                 value = render_conditional_variable(var, context.get(var.id))
                 if value is not None:
                     values[var.id] = value
                     context[var.id] = value
+
+                # Buscar y renderizar campos locales asociados a esta variable
+                local_values = render_local_fields_for_condition(
+                    var.id, value, local_fields, context, plugin_config
+                )
+                values.update(local_values)
+                context.update(local_values)
+
+    return values
+
+
+def render_local_fields_for_condition(
+    condition_var_id: str,
+    condition_value: Any,
+    local_fields: List[Any],
+    context: Dict[str, Any],
+    plugin_config: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Renderiza los campos locales asociados a una variable condicional.
+
+    Args:
+        condition_var_id: ID de la variable condicional padre
+        condition_value: Valor actual de la variable condicional
+        local_fields: Lista de campos locales
+        context: Contexto actual
+        plugin_config: Configuración del plugin
+
+    Returns:
+        Diccionario con valores de campos locales
+    """
+    from core.conditions_engine import evaluate_condition
+    from core.ui_runtime import render_field
+
+    values = {}
+
+    # Encontrar campos locales cuya condicion_padre involucra esta variable
+    relevant_fields = []
+    for field in local_fields:
+        condicion_padre = getattr(field, 'condicion_padre', None)
+        if not condicion_padre:
+            continue
+
+        # Verificar si la condición involucra esta variable
+        if condition_var_id in condicion_padre:
+            # Evaluar si la condición se cumple con el contexto actual
+            try:
+                if evaluate_condition(condicion_padre, context):
+                    relevant_fields.append(field)
+            except Exception:
+                # Si la evaluación falla (variable no existe), ignorar
+                pass
+
+    # Renderizar campos relevantes en un contenedor visual
+    if relevant_fields:
+        st.markdown("---")
+        st.markdown(f"**📝 Campos asociados:**")
+
+        # Agrupar por sección para mejor organización
+        fields_by_section = {}
+        for field in relevant_fields:
+            section = getattr(field, 'seccion', 'Campos adicionales')
+            if section not in fields_by_section:
+                fields_by_section[section] = []
+            fields_by_section[section].append(field)
+
+        for section, fields in fields_by_section.items():
+            st.caption(f"*{section}*")
+            for field in fields:
+                # Verificar si es un grupo de fecha
+                grupo = getattr(field, 'grupo', None)
+                if grupo:
+                    # Buscar todos los campos del grupo
+                    from core.ui_runtime import identify_date_groups
+                    all_local_groups = identify_date_groups(local_fields)
+                    if grupo in all_local_groups:
+                        from core.input_widgets import render_date_group_input
+                        group_fields = all_local_groups[grupo]
+                        current_values = {f.id: context.get(f.id) for f in group_fields.values()}
+                        result = render_date_group_input(group_fields, current_values)
+                        values.update(result)
+                        # Marcar campos del grupo como procesados
+                        for gf in group_fields.values():
+                            if gf in relevant_fields:
+                                relevant_fields.remove(gf)
+                else:
+                    # Campo individual
+                    value = render_field(field, context)
+                    if value is not None:
+                        values[field.id] = value
 
     return values
 
@@ -295,6 +389,7 @@ def render_simple_fields_section(
     fields: Optional[List[Any]] = None,
     header_title: str = "📝 Datos del Informe",
     default_expanded: bool = True,
+    exclude_local: bool = True,
 ) -> Dict[str, Any]:
     """
     Renderiza los campos simples organizados por secciones.
@@ -305,6 +400,7 @@ def render_simple_fields_section(
         fields: Lista de campos a renderizar (opcional)
         header_title: Título de la sección
         default_expanded: Si los expanders deben estar expandidos por defecto
+        exclude_local: Si debe excluir campos locales (mostrados en condiciones)
 
     Returns:
         Diccionario con valores de campos
@@ -315,6 +411,14 @@ def render_simple_fields_section(
 
     if not simple_fields:
         st.info("Este informe no tiene campos simples")
+        return {}
+
+    # Excluir campos locales si se solicita (se muestran en condiciones)
+    if exclude_local:
+        simple_fields = [f for f in simple_fields if getattr(f, 'ambito', 'global') != 'local']
+
+    if not simple_fields:
+        st.info("Todos los campos de este informe están asociados a condiciones")
         return {}
 
     # Agrupar por sección
@@ -341,7 +445,7 @@ def render_simple_fields_section(
 
         with st.expander(f"📋 {section}", expanded=default_expanded):
             # Usar render_section_fields modificado para soportar date groups
-            from report_platform.core.ui_runtime import render_section_fields
+            from core.ui_runtime import render_section_fields
 
             section_values = render_section_fields(
                 section_name="",  # No mostrar subheader porque ya tenemos el expander
@@ -366,7 +470,7 @@ def render_tables_section(plugin_config: Dict[str, Any], context: Dict[str, Any]
     # Si es el informe de transferencia de precio, usar el UI especializado
     if report_id == 'transferencia_precio':
         try:
-            from report_platform.core.tp_tables_ui import render_tp_tables_section
+            from core.tp_tables_ui import render_tp_tables_section
             import yaml
 
             # Cargar configuración de tablas
@@ -606,7 +710,7 @@ def main():
 
     with tab_design:
         # Importar la función de diseño de tablas
-        from report_platform.ui.table_design_ui import render_table_design_window
+        from ui.table_design_ui import render_table_design_window
 
         # Renderizar la ventana de diseño de tablas
         table_design_config = render_table_design_window()

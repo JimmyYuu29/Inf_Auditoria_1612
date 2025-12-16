@@ -7,10 +7,10 @@ definiciones de campos YAML, permitiendo formularios completamente dinámicos.
 
 import streamlit as st
 from typing import Dict, Any, List, Optional
-from report_platform.core.utils import setup_logger
-from report_platform.core.schema_models import SimpleField, ConditionalVariable
-from report_platform.core.conditions_engine import evaluate_condition
-from report_platform.core.input_widgets import (
+from core.utils import setup_logger
+from core.schema_models import SimpleField, ConditionalVariable
+from core.conditions_engine import evaluate_condition
+from core.input_widgets import (
     render_date_input,
     render_date_group_input,
     render_long_text_input,
@@ -79,7 +79,7 @@ def get_date_group_label(fields_group: Dict[str, SimpleField], config_dir) -> st
         Etiqueta del grupo o etiqueta por defecto
     """
     # Intentar obtener la etiqueta desde la configuración
-    from report_platform.core.config_loader import get_general_config
+    from core.config_loader import get_general_config
 
     # Buscar el nombre del grupo en alguno de los campos
     group_name = None

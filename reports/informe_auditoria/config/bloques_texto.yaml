@@ -427,32 +427,26 @@ bloques_texto:
     reglas:
       - cuando: "tipo_opinion == 'salvedades' and motivo_calificacion == 'incorreccion'"
         plantilla: >
-          Tal como se explica en la nota {{ numero_nota_incorreccion }} de la memoria adjunta, 
-          la Entidad no ha {{ descripcion_incorreccion }}. Si se hubiese [explicación de cómo 
-          se habría corregido la incorrección], muchos elementos de las cuentas anuales adjuntas 
-          se habrían visto afectados de forma material. De acuerdo con los registros de la Entidad, 
-          [cuantificación de los efectos de la incorrección sobre partidas concretas: p.ej., 
-          reducir existencias en X, aumentar coste de ventas en X, etc.]. En consecuencia, 
-          [efecto sobre resultados e impuestos: p.ej., el resultado neto y el patrimonio neto 
-          deberían minorarse en X…].
+          Tal como se explica en la nota {{ numero_nota_incorreccion }} de la memoria adjunta,
+          la Entidad no ha {{ descripcion_incorreccion }}. {{ explicacion_correccion_incorreccion }},
+          muchos elementos de las cuentas anuales adjuntas se habrían visto afectados de forma material.
+          De acuerdo con los registros de la Entidad, {{ cuantificacion_efectos_incorreccion }}.
+          En consecuencia, {{ efecto_resultados_impuestos }}.
 
       - cuando: "tipo_opinion == 'salvedades' and motivo_calificacion == 'limitacion'"
         plantilla: >
-          Tal como se indica en la nota {{ numero_nota_limitacion }} de la memoria adjunta, 
-          {{ descripcion_limitacion }}. En el transcurso de nuestro trabajo no hemos tenido 
-          acceso a [información o personas necesarias, p. ej., la información financiera, 
-          planes de negocio, la dirección ni a los auditores de XYZ]. En consecuencia, no hemos 
-          podido obtener evidencia de auditoría suficiente y adecuada sobre [la partida afectada, 
-          p. ej., el importe recuperable de la inversión en XYZ a 31 de diciembre de 
-          {{ ano_cierre_ejercicio }}], ni determinar si [efectos potenciales: p. ej., el importe 
-          por el que figura registrada la inversión debe ser ajustado].
+          Tal como se indica en la nota {{ numero_nota_limitacion }} de la memoria adjunta,
+          {{ descripcion_limitacion }}. En el transcurso de nuestro trabajo no hemos tenido
+          acceso a {{ informacion_no_accesible }}. En consecuencia, no hemos podido obtener
+          evidencia de auditoría suficiente y adecuada sobre {{ partida_afectada_limitacion }},
+          ni determinar si {{ efectos_potenciales_limitacion }}.
 
       - cuando: "tipo_opinion == 'desfavorable'"
         plantilla: >
-          Tal como se explica en la nota {{ numero_nota_desfavorable }} de la memoria adjunta, 
-          la Entidad {{ descripcion_desfavorable }}. Si se hubiese [acción correcta que no se tomó], 
-          muchos elementos de las cuentas anuales adjuntas se habrían visto afectados de forma 
-          muy significativa. No se han determinado los efectos sobre las cuentas anuales de 
+          Tal como se explica en la nota {{ numero_nota_desfavorable }} de la memoria adjunta,
+          la Entidad {{ descripcion_desfavorable }}. {{ accion_correcta_no_tomada }},
+          muchos elementos de las cuentas anuales adjuntas se habrían visto afectados de forma
+          muy significativa. No se han determinado los efectos sobre las cuentas anuales de
           esta omisión.
 
       - cuando: "tipo_opinion == 'denegada'"
@@ -768,7 +762,7 @@ bloques_texto:
         plantilla: >
           Otras cuestiones
 
-          [Texto libre a completar por el auditor]
+          {{ texto_libre_otras_cuestiones }}
 
       - cuando: "True"
         plantilla: ""

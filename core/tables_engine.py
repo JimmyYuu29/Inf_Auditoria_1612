@@ -6,8 +6,8 @@ utilidades para trabajar con tablas dinámicas.
 """
 
 from typing import Dict, Any, List, Optional
-from report_platform.core.utils import setup_logger
-from report_platform.core.schema_models import TableDefinition, TableColumn
+from core.utils import setup_logger
+from core.schema_models import TableDefinition, TableColumn
 
 logger = setup_logger(__name__)
 
@@ -220,7 +220,7 @@ def filter_table_rows(data: List[Dict[str, Any]],
     Returns:
         Lista filtrada de filas
     """
-    from report_platform.core.conditions_engine import evaluate_condition
+    from core.conditions_engine import evaluate_condition
     
     filtered = []
     for row in data:
