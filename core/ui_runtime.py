@@ -457,16 +457,29 @@ def validate_form_data(fields: List[SimpleField],
     errors = []
     
     for field in fields:
+        # Omitir campos calculados o no aplicables según dependencias
+        if getattr(field, "calculado", False):
+            continue
+
+        if not should_show_field_in_ui(field, data):
+            continue
+
         # Verificar campos requeridos
         if field.requerido and field.id not in data:
             errors.append(f"Campo requerido faltante: {field.nombre}")
             continue
-        
+
         if field.id not in data:
             continue
-        
+
         value = data[field.id]
-        
+
+        # Si el valor está vacío, solo marcar error si es requerido
+        if value in (None, ""):
+            if field.requerido:
+                errors.append(f"Campo requerido faltante: {field.nombre}")
+            continue
+
         # Validar rangos numéricos
         if field.tipo == "numero":
             try:
