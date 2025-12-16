@@ -10,8 +10,8 @@ solo permite operadores seguros (comparación, lógica, paréntesis).
 
 import ast
 from typing import Dict, Any, List, Optional, Union
-from report_platform.core.utils import setup_logger
-from report_platform.core.schema_models import BlockDefinition, BlockRule
+from core.utils import setup_logger
+from core.schema_models import BlockDefinition, BlockRule
 
 logger = setup_logger(__name__)
 

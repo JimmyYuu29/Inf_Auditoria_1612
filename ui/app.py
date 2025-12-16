@@ -13,7 +13,7 @@ from datetime import datetime
 import streamlit as st
 
 # Ensure the project root is in the Python path when running directly with Streamlit
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -341,7 +341,7 @@ def render_simple_fields_section(
 
         with st.expander(f"📋 {section}", expanded=default_expanded):
             # Usar render_section_fields modificado para soportar date groups
-            from report_platform.core.ui_runtime import render_section_fields
+            from core.ui_runtime import render_section_fields
 
             section_values = render_section_fields(
                 section_name="",  # No mostrar subheader porque ya tenemos el expander
@@ -366,7 +366,7 @@ def render_tables_section(plugin_config: Dict[str, Any], context: Dict[str, Any]
     # Si es el informe de transferencia de precio, usar el UI especializado
     if report_id == 'transferencia_precio':
         try:
-            from report_platform.core.tp_tables_ui import render_tp_tables_section
+            from core.tp_tables_ui import render_tp_tables_section
             import yaml
 
             # Cargar configuración de tablas
@@ -606,7 +606,7 @@ def main():
 
     with tab_design:
         # Importar la función de diseño de tablas
-        from report_platform.ui.table_design_ui import render_table_design_window
+        from ui.table_design_ui import render_table_design_window
 
         # Renderizar la ventana de diseño de tablas
         table_design_config = render_table_design_window()

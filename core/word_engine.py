@@ -9,7 +9,7 @@ renderizado completo de Word con formato preservado.
 from pathlib import Path
 from typing import Dict, Any, Optional
 from jinja2 import Environment, FileSystemLoader, BaseLoader
-from report_platform.core.utils import setup_logger, get_outputs_dir, safe_filename
+from core.utils import setup_logger, get_outputs_dir, safe_filename
 
 logger = setup_logger(__name__)
 
@@ -152,8 +152,8 @@ def _render_with_xml_engine(template_path: Path, context: Dict[str, Any],
         Path al archivo generado o None si hay error
     """
     try:
-        from report_platform.core.xml_word_engine import XMLWordEngineAdapter
-        from report_platform.core.tp_tables_engine import TableBuilder
+        from core.xml_word_engine import XMLWordEngineAdapter
+        from core.tp_tables_engine import TableBuilder
 
         # Extraer metadatos del contexto
         config_dir = Path(context.get("_config_dir", "."))

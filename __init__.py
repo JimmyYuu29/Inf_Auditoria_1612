@@ -11,8 +11,8 @@ __version__ = "1.0.0"
 __author__ = "Jimmy - Forvis Mazars España"
 
 # Exportar componentes principales del core
-from report_platform.core.config_loader import load_manifest, load_yaml_config
-from report_platform.core.schema_models import SimpleField, BlockDefinition, Manifest
+from core.config_loader import load_manifest, load_yaml_config
+from core.schema_models import SimpleField, BlockDefinition, Manifest
 
 __all__ = [
     "load_manifest",

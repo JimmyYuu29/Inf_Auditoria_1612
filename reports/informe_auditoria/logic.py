@@ -33,7 +33,7 @@ from jinja2 import Environment, BaseLoader
 import logging
 
 # Importar el evaluador de condiciones del core
-from report_platform.core.conditions_engine import evaluate_condition
+from core.conditions_engine import evaluate_condition
 
 # Configuración del logger
 logging.basicConfig(level=logging.INFO)

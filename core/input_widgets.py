@@ -13,8 +13,8 @@ from typing import Any, Optional
 
 import streamlit as st
 
-from report_platform.core.schema_models import SimpleField
-from report_platform.core.utils import setup_logger
+from core.schema_models import SimpleField
+from core.utils import setup_logger
 
 logger = setup_logger(__name__)
 

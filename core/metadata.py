@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
-from report_platform.core.utils import setup_logger
+from core.utils import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -55,7 +55,7 @@ def get_metadata_dir() -> Path:
         Path al directorio de metadatos
     """
     # Usar directorio en la raíz del proyecto
-    metadata_dir = Path(__file__).resolve().parents[2] / "metadata"
+    metadata_dir = Path(__file__).resolve().parents[1] / "metadata"
 
     # Crear directorio si no existe
     metadata_dir.mkdir(exist_ok=True)
