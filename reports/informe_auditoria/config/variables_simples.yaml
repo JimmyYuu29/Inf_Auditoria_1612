@@ -511,7 +511,7 @@ variables_simples:
     seccion: "Descripciones técnicas"
     ambito: local
     condicion_padre: "enfasis_adicional == 'si'"
-    
+
   - id: descripcion_servicios_adicionales
     nombre: "Descripción de servicios adicionales prestados"
     tipo: texto_largo
@@ -520,6 +520,93 @@ variables_simples:
     seccion: "Información de auditoría"
     ambito: local
     condicion_padre: "tipo_entidad == 'EIP'"
+
+  # ==================== CAMPOS DE PÁRRAFOS LIBRES ====================
+  # Estos campos corresponden a los marcadores [...] en bloques_texto.yaml
+
+  # --- Para salvedades por incorrección ---
+  - id: explicacion_correccion_incorreccion
+    nombre: "Explicación de cómo se habría corregido la incorrección"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Ej: Si se hubiese contabilizado correctamente la amortización del fondo de comercio..."
+    ayuda: "Explique cómo debería haberse corregido la incorrección material detectada"
+    seccion: "Párrafos libres - Salvedades"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades' and motivo_calificacion == 'incorreccion'"
+
+  - id: cuantificacion_efectos_incorreccion
+    nombre: "Cuantificación de los efectos de la incorrección"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Ej: reducir existencias en 500 miles de euros, aumentar coste de ventas en 500 miles de euros"
+    ayuda: "Detalle los efectos cuantificados sobre partidas concretas del balance y cuenta de resultados"
+    seccion: "Párrafos libres - Salvedades"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades' and motivo_calificacion == 'incorreccion'"
+
+  - id: efecto_resultados_impuestos
+    nombre: "Efecto sobre resultados e impuestos"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Ej: el resultado neto debería minorarse en 400 miles de euros y el patrimonio neto en 400 miles de euros"
+    ayuda: "Indique el efecto final sobre el resultado del ejercicio y el patrimonio neto"
+    seccion: "Párrafos libres - Salvedades"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades' and motivo_calificacion == 'incorreccion'"
+
+  # --- Para salvedades por limitación ---
+  - id: informacion_no_accesible
+    nombre: "Información o personas no accesibles"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Ej: la información financiera, planes de negocio, la dirección ni a los auditores de la filial XYZ"
+    ayuda: "Describa qué información o personas no estuvieron disponibles durante la auditoría"
+    seccion: "Párrafos libres - Salvedades"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades' and motivo_calificacion == 'limitacion'"
+
+  - id: partida_afectada_limitacion
+    nombre: "Partida afectada por la limitación"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Ej: el importe recuperable de la inversión en XYZ a 31 de diciembre de 2024"
+    ayuda: "Indique qué partida o saldo no pudo verificarse adecuadamente"
+    seccion: "Párrafos libres - Salvedades"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades' and motivo_calificacion == 'limitacion'"
+
+  - id: efectos_potenciales_limitacion
+    nombre: "Efectos potenciales de la limitación"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Ej: el importe por el que figura registrada la inversión debe ser ajustado"
+    ayuda: "Describa los posibles efectos que no pudieron determinarse"
+    seccion: "Párrafos libres - Salvedades"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades' and motivo_calificacion == 'limitacion'"
+
+  # --- Para opinión desfavorable ---
+  - id: accion_correcta_no_tomada
+    nombre: "Acción correcta que no se tomó"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Ej: Si se hubiese consolidado la participación en XYZ por el método de puesta en equivalencia..."
+    ayuda: "Describa qué acción debería haberse tomado para corregir la situación"
+    seccion: "Párrafos libres - Desfavorable"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'desfavorable'"
+
+  # --- Para otras cuestiones (texto libre) ---
+  - id: texto_libre_otras_cuestiones
+    nombre: "Texto libre para otras cuestiones"
+    tipo: texto_largo
+    requerido: false
+    placeholder: "Introduzca el texto específico para la sección de otras cuestiones"
+    ayuda: "Este texto se incluirá en la sección 'Otras cuestiones' del informe"
+    seccion: "Párrafos libres - Otras cuestiones"
+    ambito: local
+    condicion_padre: "otras_cuestiones == 'si' and texto_cuestiones == 'otros'"
 
 # ==================== CONFIGURACIÓN GENERAL ====================
 
@@ -579,3 +666,6 @@ configuracion:
     - "Descripciones técnicas"
     - "Información financiera"
     - "Información del auditor"
+    - "Párrafos libres - Salvedades"
+    - "Párrafos libres - Desfavorable"
+    - "Párrafos libres - Otras cuestiones"

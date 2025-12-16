@@ -15,6 +15,93 @@ logger = setup_logger(__name__)
 
 
 # ==============================================================================
+# AJUSTE DE FORMATO - LIMPIEZA DE LÍNEAS EN BLANCO
+# ==============================================================================
+
+def clean_blank_lines(text: str) -> str:
+    """
+    Limpia líneas en blanco excesivas de un texto.
+
+    Garantiza que entre párrafos haya como máximo una línea en blanco.
+    Elimina líneas en blanco al inicio y al final.
+
+    Args:
+        text: Texto a limpiar
+
+    Returns:
+        Texto limpio con formato ajustado
+    """
+    if not text or not isinstance(text, str):
+        return text or ""
+
+    import re
+
+    # Normalizar saltos de línea
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+
+    # Eliminar espacios en blanco al final de cada línea
+    lines = [line.rstrip() for line in text.split('\n')]
+
+    # Colapsar múltiples líneas en blanco a máximo una
+    cleaned_lines = []
+    prev_blank = False
+
+    for line in lines:
+        is_blank = len(line.strip()) == 0
+
+        if is_blank:
+            if not prev_blank:
+                # Mantener una línea en blanco
+                cleaned_lines.append('')
+            prev_blank = True
+        else:
+            cleaned_lines.append(line)
+            prev_blank = False
+
+    # Eliminar líneas en blanco al inicio y al final
+    while cleaned_lines and cleaned_lines[0] == '':
+        cleaned_lines.pop(0)
+    while cleaned_lines and cleaned_lines[-1] == '':
+        cleaned_lines.pop()
+
+    return '\n'.join(cleaned_lines)
+
+
+def clean_context_formatting(context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Limpia el formato de todos los valores de texto en el contexto.
+
+    Aplica clean_blank_lines a todos los valores string para:
+    - Eliminar líneas en blanco excesivas
+    - Normalizar el espaciado entre párrafos
+    - Eliminar espacios en blanco innecesarios
+
+    Args:
+        context: Diccionario de contexto
+
+    Returns:
+        Contexto con valores de texto formateados
+    """
+    cleaned = {}
+
+    for key, value in context.items():
+        if key.startswith('_'):
+            # Preservar metadatos internos
+            cleaned[key] = value
+        elif isinstance(value, str):
+            # Limpiar valores de texto
+            cleaned[key] = clean_blank_lines(value)
+        elif value is None:
+            # Convertir None a string vacío
+            cleaned[key] = ''
+        else:
+            # Preservar otros tipos
+            cleaned[key] = value
+
+    return cleaned
+
+
+# ==============================================================================
 # RENDERIZADO BÁSICO DE PLANTILLAS
 # ==============================================================================
 
@@ -112,13 +199,18 @@ def _render_with_jinja2(template_path: Path, context: Dict[str, Any],
         # Cargar plantilla
         doc = DocxTemplate(str(template_path))
 
-        # Renderizar con contexto
+        # Aplicar limpieza de formato al contexto
+        # Esto elimina líneas en blanco excesivas de los bloques de texto
+        formatted_context = clean_context_formatting(context)
+
         # Filtrar valores None y metadata especial
         clean_context = {
             k: (v if v is not None else '')
-            for k, v in context.items()
+            for k, v in formatted_context.items()
             if not k.startswith('_')
         }
+
+        logger.info("Aplicando ajuste de formato (limpieza de líneas en blanco)")
         doc.render(clean_context)
 
         # Guardar documento
