@@ -4,6 +4,15 @@ Este módulo centraliza la creación de controles de entrada para distintas
 categorías de datos, ofreciendo experiencias más intuitivas como el selector
 calendario para fechas. De esta forma, añadir nuevos tipos de campos o ajustar
 su comportamiento visual es más sencillo y reutilizable desde la UI.
+
+PATCH NOTES (minimally invasive):
+- Avoid widget "value/index" being recomputed on every rerun when a stable `key`
+  is used. This was causing values to "bounce back" (e.g., select/radio needing
+  two clicks) and inputs appearing to reset.
+- Session state is treated as the single source of truth:
+  - Initialize defaults only once (when `key` not present).
+  - Then always render widgets using the value stored in `st.session_state[key]`.
+- Function signatures are preserved to remain compatible with existing callers.
 """
 
 from __future__ import annotations
@@ -40,59 +49,79 @@ def _ensure_date(value: Any) -> Optional[date]:
     return None
 
 
+def _field_key(field: SimpleField) -> str:
+    """Stable session key for a field."""
+    return f"field_{field.id}"
+
+
 def render_text_input(field: SimpleField, current_value: Any = None) -> Any:
     """Renderiza un campo de texto corto."""
+    key = _field_key(field)
+
+    if key not in st.session_state:
+        st.session_state[key] = current_value or ""
 
     return st.text_input(
         label=field.nombre,
-        value=current_value or "",
+        value=st.session_state.get(key, ""),
         placeholder=field.placeholder or "",
         help=field.ayuda,
-        key=f"field_{field.id}",
+        key=key,
     )
 
 
 def render_long_text_input(field: SimpleField, current_value: Any = None) -> Any:
     """Renderiza un área de texto para descripciones más largas."""
+    key = _field_key(field)
+
+    if key not in st.session_state:
+        st.session_state[key] = current_value or ""
 
     return st.text_area(
         label=field.nombre,
-        value=current_value or "",
+        value=st.session_state.get(key, ""),
         placeholder=field.placeholder or "",
         help=field.ayuda,
-        key=f"field_{field.id}",
+        key=key,
         height=150,
     )
 
 
 def render_number_input(field: SimpleField, current_value: Any = None) -> Any:
     """Renderiza un campo numérico con soporte para límites y decimales."""
+    key = _field_key(field)
 
     min_val = float(field.min) if field.min is not None else None
     max_val = float(field.max) if field.max is not None else None
 
-    if current_value is not None:
-        try:
-            initial_value = float(current_value)
-        except (TypeError, ValueError):
-            initial_value = min_val or 0.0
-    elif min_val is not None:
-        initial_value = min_val
-    else:
-        initial_value = 0.0
+    # One-time initialization only
+    if key not in st.session_state:
+        if current_value is not None:
+            try:
+                initial_value = float(current_value)
+            except (TypeError, ValueError):
+                initial_value = min_val if min_val is not None else 0.0
+        elif min_val is not None:
+            initial_value = min_val
+        else:
+            initial_value = 0.0
 
+        st.session_state[key] = float(initial_value)
+
+    # Decide step (keep previous behavior)
     has_decimals = any(
         isinstance(val, float) and not float(val).is_integer()
-        for val in (field.min, field.max, current_value)
+        for val in (field.min, field.max, st.session_state.get(key))
+        if val is not None
     )
     step = 0.01 if has_decimals else 1.0
 
     number_input_args = {
         "label": field.nombre,
-        "value": initial_value,
+        "value": float(st.session_state.get(key, 0.0)),
         "step": float(step),
         "help": field.ayuda,
-        "key": f"field_{field.id}",
+        "key": key,
     }
 
     if min_val is not None:
@@ -105,36 +134,42 @@ def render_number_input(field: SimpleField, current_value: Any = None) -> Any:
 
 def render_select_input(field: SimpleField, current_value: Any = None) -> Any:
     """Renderiza un selector de opciones para campos de lista."""
-
     if not field.opciones:
         st.warning(f"Campo '{field.nombre}' no tiene opciones definidas")
         return None
 
+    key = _field_key(field)
     options = field.opciones
-    default_index = 0
 
-    if current_value in options:
-        default_index = options.index(current_value)
+    # One-time initialization only
+    if key not in st.session_state:
+        if current_value in options:
+            st.session_state[key] = current_value
+        else:
+            st.session_state[key] = options[0]
 
+    # No `index=` recomputation: Streamlit will pick the value from session_state[key]
     return st.selectbox(
         label=field.nombre,
         options=options,
-        index=default_index,
         help=field.ayuda,
-        key=f"field_{field.id}",
+        key=key,
     )
 
 
 def render_date_input(field: SimpleField, current_value: Any = None) -> Optional[date]:
     """Renderiza un selector de fecha con calendario integrado."""
+    key = _field_key(field)
 
-    initial_date = _ensure_date(current_value) or date.today()
+    if key not in st.session_state:
+        st.session_state[key] = _ensure_date(current_value) or date.today()
 
+    # date_input requires a value; keep it in sync with session_state
     return st.date_input(
         label=field.nombre,
-        value=initial_date,
+        value=st.session_state.get(key, date.today()),
         help=field.ayuda,
-        key=f"field_{field.id}",
+        key=key,
         format="YYYY-MM-DD",
     )
 
@@ -156,29 +191,29 @@ def render_date_group_input(
     Returns:
         Diccionario con valores de dia, mes, ano extraídos de la fecha seleccionada
     """
-    # Obtener los IDs de los campos disponibles
     dia_field = fields_group.get("dia")
     mes_field = fields_group.get("mes")
     ano_field = fields_group.get("ano")
 
-    # Construir fecha inicial desde valores actuales
+    # Build initial_date only for first initialization
     initial_date = None
+
+    def _mes_num(mes_val: Any) -> Optional[int]:
+        meses_es = {
+            "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
+            "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+            "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+        }
+        return meses_es.get(str(mes_val).lower(), None) if mes_val is not None else None
 
     if dia_field and mes_field and ano_field:
         dia_val = current_values.get(dia_field.id)
         mes_val = current_values.get(mes_field.id)
         ano_val = current_values.get(ano_field.id)
 
-        # Intentar construir fecha desde dia, mes, ano
         if dia_val and mes_val and ano_val:
             try:
-                # Mapeo de nombres de meses en español
-                meses_es = {
-                    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
-                    "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
-                    "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12
-                }
-                mes_num = meses_es.get(str(mes_val).lower(), None)
+                mes_num = _mes_num(mes_val)
                 if mes_num:
                     initial_date = date(int(ano_val), mes_num, int(dia_val))
             except (ValueError, TypeError):
@@ -186,19 +221,14 @@ def render_date_group_input(
                     "No se pudo construir fecha desde %s/%s/%s",
                     dia_val, mes_val, ano_val
                 )
+
     elif mes_field and ano_field:
-        # Solo mes y año, usar primer día del mes
         mes_val = current_values.get(mes_field.id)
         ano_val = current_values.get(ano_field.id)
 
         if mes_val and ano_val:
             try:
-                meses_es = {
-                    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
-                    "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
-                    "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12
-                }
-                mes_num = meses_es.get(str(mes_val).lower(), None)
+                mes_num = _mes_num(mes_val)
                 if mes_num:
                     initial_date = date(int(ano_val), mes_num, 1)
             except (ValueError, TypeError):
@@ -210,30 +240,30 @@ def render_date_group_input(
     if initial_date is None:
         initial_date = date.today()
 
-    # Renderizar selector de fecha
+    group_key = f"date_group_{group_name}"
+
+    # One-time initialization only
+    if group_key not in st.session_state:
+        st.session_state[group_key] = initial_date
+
     selected_date = st.date_input(
         label=group_label,
-        value=initial_date,
-        help=f"Selecciona la fecha usando el calendario",
-        key=f"date_group_{group_name}",
+        value=st.session_state.get(group_key, initial_date),
+        help="Selecciona la fecha usando el calendario",
+        key=group_key,
         format="DD/MM/YYYY",
     )
 
-    # Extraer componentes de la fecha
-    result = {}
-
-    # Mapeo inverso de números a nombres de meses
     meses_nombres = [
         "enero", "febrero", "marzo", "abril", "mayo", "junio",
         "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
     ]
 
+    result: dict[str, Any] = {}
     if dia_field:
         result[dia_field.id] = selected_date.day
-
     if mes_field:
         result[mes_field.id] = meses_nombres[selected_date.month - 1]
-
     if ano_field:
         result[ano_field.id] = selected_date.year
 

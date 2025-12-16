@@ -21,6 +21,36 @@ from core.input_widgets import (
 
 logger = setup_logger(__name__)
 
+# ==============================================================================
+# HELPERS - ESTADO ESTABLE PARA WIDGETS
+# ==============================================================================
+def _get_state_value(field_id: str, fallback: Any = None) -> Any:
+    """Obtiene un valor desde st.session_state con tolerancia a distintas claves.
+
+    En proyectos reales, los widgets a veces usan key=field.id, key=f"field_{id}", etc.
+    Esta función intenta varias variantes para minimizar 'rebotes' y pérdida de estado.
+    """
+    candidates = [
+        field_id,
+        f"field_{field_id}",
+        f"input_{field_id}",
+        f"w_{field_id}",
+    ]
+    for k in candidates:
+        if k in st.session_state:
+            return st.session_state.get(k)
+    return fallback
+
+
+def _set_state_value(field_id: str, value: Any) -> None:
+    """Guarda un valor en session_state bajo una clave 'canónica' y, si existe, también bajo field_id."""
+    canonical = f"field_{field_id}"
+    st.session_state[canonical] = value
+    # Si el proyecto ya usa field_id como key de widget, mantenerlo sincronizado sin pisar otros tipos
+    if field_id in st.session_state and not isinstance(st.session_state.get(field_id), (dict, list, tuple, set)):
+        st.session_state[field_id] = value
+
+
 
 # ==============================================================================
 # IDENTIFICACIÓN DE GRUPOS DE FECHAS
@@ -107,60 +137,93 @@ def get_date_group_label(fields_group: Dict[str, SimpleField], config_dir) -> st
 def render_conditional_variable(var: ConditionalVariable, 
                                current_value: Any = None) -> Any:
     """
-    Renderiza una variable condicional (radio buttons).
-    
-    Args:
-        var: Definición de la variable
-        current_value: Valor actual
-    
-    Returns:
-        Valor seleccionado
+    Renderiza una variable condicional (radio / select) de forma estable.
+
+    Problema típico en Streamlit:
+    - Cada interacción provoca un rerun.
+    - Si en cada rerun recalculas `index` desde un `current_value` que puede estar desfasado,
+      el control "rebota" al valor por defecto y el usuario siente que debe elegir dos veces.
+
+    Estrategia:
+    - Separar la clave del widget (UI) de la clave del valor lógico (VAL).
+    - Inicializar el valor por defecto SOLO una vez.
+    - En reruns, respetar el estado ya guardado en session_state.
     """
     if not var.opciones:
         st.warning(f"Variable '{var.nombre}' no tiene opciones definidas")
         return None
-    
-    # Opciones de la variable
+
     options = [opt.valor for opt in var.opciones]
     labels = [opt.etiqueta for opt in var.opciones]
-    
-    # Determinar opción por defecto
-    default_idx = 0
-    for idx, opt in enumerate(var.opciones):
+    label_to_value = {opt.etiqueta: opt.valor for opt in var.opciones}
+    value_to_label = {opt.valor: opt.etiqueta for opt in var.opciones}
+
+    # Claves separadas: UI guarda etiqueta; VAL guarda valor lógico
+    val_key = f"cond_{var.id}"
+    ui_key = f"cond_{var.id}__ui"
+
+    # Determinar default (solo para inicialización)
+    default_value = options[0]
+    for opt in var.opciones:
         if opt.es_default:
-            default_idx = idx
+            default_value = opt.valor
             break
-    
-    if current_value and current_value in options:
-        default_idx = options.index(current_value)
-    
-    # Renderizar según tipo de control
+
+    # Inicialización: priorizar current_value si es válido; si no, default
+    if val_key not in st.session_state:
+        if current_value is not None and current_value in options:
+            st.session_state[val_key] = current_value
+        else:
+            st.session_state[val_key] = default_value
+
+    # Mantener UI (etiqueta) coherente con el valor lógico
+    if ui_key not in st.session_state:
+        st.session_state[ui_key] = value_to_label.get(st.session_state[val_key], labels[0])
+
+    help_text = getattr(var, "descripcion", None)
+
     if var.tipo_control == "radio":
-        selected_label = st.radio(
-            label=var.nombre,
-            options=labels,
-            index=default_idx,
-            help=var.descripcion,
-            key=f"cond_{var.id}"
-        )
-        # Mapear label a valor
-        selected_idx = labels.index(selected_label)
-        return options[selected_idx]
-    
+        # Importante: NO forzar `index` si el widget ya tiene estado propio
+        if ui_key in st.session_state:
+            selected_label = st.radio(
+                label=var.nombre,
+                options=labels,
+                help=help_text,
+                key=ui_key,
+            )
+        else:
+            selected_label = st.radio(
+                label=var.nombre,
+                options=labels,
+                index=labels.index(st.session_state[ui_key]),
+                help=help_text,
+                key=ui_key,
+            )
+
     elif var.tipo_control == "select":
-        selected_label = st.selectbox(
-            label=var.nombre,
-            options=labels,
-            index=default_idx,
-            help=var.descripcion,
-            key=f"cond_{var.id}"
-        )
-        selected_idx = labels.index(selected_label)
-        return options[selected_idx]
-    
+        if ui_key in st.session_state:
+            selected_label = st.selectbox(
+                label=var.nombre,
+                options=labels,
+                help=help_text,
+                key=ui_key,
+            )
+        else:
+            selected_label = st.selectbox(
+                label=var.nombre,
+                options=labels,
+                index=labels.index(st.session_state[ui_key]),
+                help=help_text,
+                key=ui_key,
+            )
     else:
         st.warning(f"Tipo de control desconocido: {var.tipo_control}")
-        return options[default_idx]
+        selected_label = st.session_state[ui_key]
+
+    # Guardar valor lógico
+    selected_value = label_to_value.get(selected_label, default_value)
+    st.session_state[val_key] = selected_value
+    return selected_value
 
 
 # ==============================================================================
@@ -202,33 +265,37 @@ def render_field(field: SimpleField, current_value: Any = None) -> Any:
 def should_show_field_in_ui(field: SimpleField, context: Dict[str, Any]) -> bool:
     """
     Determina si un campo debe mostrarse según su dependencia.
-    
-    Args:
-        field: Definición del campo
-        context: Contexto actual con valores
-    
-    Returns:
-        True si el campo debe mostrarse
+
+    Nota: Para evitar "rebotes", intentamos leer el valor más reciente desde session_state
+    cuando el `context` aún no lo refleja (por ejemplo, durante reruns).
     """
     # Si el campo es calculado, no se muestra
     if field.calculado:
         return False
-    
+
     # Si tiene condición padre, evaluarla
     if field.condicion_padre:
+        # Enriquecer contexto con posibles valores más recientes
+        try:
+            dep_vars = getattr(field.condicion_padre, "variables", None)
+            if dep_vars:
+                for v in dep_vars:
+                    if v not in context:
+                        context[v] = _get_state_value(v, context.get(v))
+        except Exception:
+            pass
         return evaluate_condition(field.condicion_padre, context)
-    
+
     # Si tiene dependencia estructurada
     if field.dependencia:
         dep = field.dependencia
-        parent_value = context.get(dep.variable)
-        
+        parent_value = context.get(dep.variable, _get_state_value(dep.variable))
+
         if dep.valor:
             return parent_value == dep.valor
         elif dep.valor_no:
             return parent_value != dep.valor_no
-    
-    # Por defecto, mostrar
+
     return True
 
 
@@ -255,6 +322,16 @@ def render_section_fields(
         st.subheader(section_name)
 
     values = {}
+
+    # Sincronizar contexto con el estado más reciente de Streamlit para reducir 'rebotes'
+    for _f in fields:
+        if _f is None:
+            continue
+        try:
+            if _f.id not in context:
+                context[_f.id] = _get_state_value(_f.id, context.get(_f.id))
+        except Exception:
+            continue
 
     # Identificar grupos de fechas
     date_groups = identify_date_groups(fields)
