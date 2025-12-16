@@ -1,0 +1,601 @@
+# Variables Condicionales - Sistema de Generación de Informes de Auditoría
+# Define todas las condiciones que modifican el texto del informe
+# Versión: 2.0 - Corregida y normalizada para Jinja2
+
+variables_condicionales:
+
+  # ==================== CONDICIÓN: TIPO DE CUENTAS ====================
+  
+  - id: tipo_cuentas
+    nombre: "Tipo de cuentas anuales"
+    descripcion: "Determina si las cuentas son consolidadas, abreviadas o normales"
+    tipo_control: radio
+    requerido: true
+    seccion: "Características de las cuentas"
+    opciones:
+      - valor: "consolidadas"
+        etiqueta: "Cuentas anuales consolidadas"
+        descripcion: "Para grupos de empresas con sociedad dominante y dependientes"
+        titulo_informe: "Auditoría de Cuentas Anuales Consolidadas emitido por un Auditor Independiente"
+        
+      - valor: "abreviadas"
+        etiqueta: "Cuentas anuales abreviadas"
+        descripcion: "Para empresas que cumplen criterios de abreviación"
+        titulo_informe: "Auditoría de Cuentas Anuales Abreviadas emitido por un Auditor Independiente"
+
+      - valor: "normales"
+        etiqueta: "Cuentas anuales normales"
+        descripcion: "Cuentas anuales completas estándar"
+        es_default: true
+        titulo_informe: "Auditoría de Cuentas Anuales emitido por un Auditor Independiente"
+    
+  # ==================== CONDICIÓN: TIPO DE AUDITORÍA ====================
+  
+  - id: tipo_auditoria
+    nombre: "Tipo de auditoría"
+    descripcion: "Define si la auditoría es obligatoria o voluntaria"
+    tipo_control: radio
+    requerido: true
+    seccion: "Información general"
+    opciones:
+      - valor: "Obligatoria"
+        etiqueta: "Auditoría obligatoria"
+        es_default: true
+        
+      - valor: "Voluntaria"
+        etiqueta: "Auditoría voluntaria"
+        descripcion: "Por encargo de un tercero"
+        variables_asociadas:
+          - entidad_encargante
+    
+  # ==================== CONDICIÓN: TIPO DE ENTIDAD ====================
+  
+  - id: tipo_entidad
+    nombre: "Tipo de entidad"
+    descripcion: "Define si la entidad es de interés público (EIP) o no"
+    tipo_control: radio
+    requerido: true
+    seccion: "Características de la entidad"
+    opciones:
+      - valor: "EIP"
+        etiqueta: "Entidad de Interés Público (EIP)"
+        descripcion: "Cotizadas, entidades de crédito, aseguradoras, etc."
+        variables_asociadas:
+          - fecha_informe_adicional
+          - fecha_nombramiento
+          - fecha_inicio_periodo
+          - fecha_inicio_auditoria_anterior
+          - periodo_auditoria
+          - periodo_anterior
+          - auditor_continuidad
+          - descripcion_servicios_adicionales
+        
+      - valor: "No EIP"
+        etiqueta: "No es Entidad de Interés Público"
+        es_default: true
+
+  # ==================== VARIABLE DERIVADA: INFORME EIP ====================
+  
+  - id: informe_eip
+    nombre: "Texto de encabezado para informe EIP"
+    descripcion: "Texto que aparece antes de la opinión en informes de EIP"
+    tipo_control: derivado
+    seccion: "Características de la entidad"
+    reglas:
+      - condicion:
+          and:
+            - campo: "tipo_entidad"
+              igual: "EIP"
+            - campo: "tipo_cuentas"
+              igual: "consolidadas"
+        texto: "Informe sobre las cuentas anuales consolidadas"
+      - condicion:
+          and:
+            - campo: "tipo_entidad"
+              igual: "EIP"
+            - campo: "tipo_cuentas"
+              no_igual: "consolidadas"
+        texto: "Informe sobre las cuentas anuales"
+      - condicion:
+          campo: "tipo_entidad"
+          igual: "No EIP"
+        texto: ""
+    
+  # ==================== CONDICIÓN: TIPO DE OPINIÓN ====================
+  
+  - id: tipo_opinion
+    nombre: "Tipo de opinión de auditoría"
+    descripcion: "Determina la naturaleza de la opinión del auditor"
+    tipo_control: radio
+    requerido: true
+    seccion: "Opinión de auditoría"
+    opciones:
+      - valor: "favorable"
+        etiqueta: "Opinión favorable (limpia)"
+        descripcion: "Las cuentas expresan la imagen fiel sin salvedades"
+        es_default: true
+        
+      - valor: "salvedades"
+        etiqueta: "Opinión con salvedades"
+        descripcion: "Excepto por ciertos aspectos, las cuentas expresan la imagen fiel"
+        variables_asociadas:
+          - limitacion_alcance
+          - motivo_calificacion
+          
+      - valor: "desfavorable"
+        etiqueta: "Opinión desfavorable (adversa)"
+        descripcion: "Las cuentas no expresan la imagen fiel"
+        variables_asociadas:
+          - numero_nota_desfavorable
+          - descripcion_desfavorable
+          
+      - valor: "denegada"
+        etiqueta: "Denegación de opinión (disclaimer)"
+        descripcion: "No se puede expresar una opinión"
+        variables_asociadas:
+          - numero_nota_denegada
+          - fecha_incertidumbre
+    
+  # ==================== CONDICIÓN: MARCO NORMATIVO ====================
+  
+  - id: marco_normativo
+    nombre: "Marco normativo de información financiera"
+    descripcion: "Define qué normativa contable se aplica"
+    tipo_control: radio
+    requerido: true
+    seccion: "Marco normativo"
+    opciones:
+      - valor: "NIIF-UE"
+        etiqueta: "NIIF adoptadas por la Unión Europea"
+        descripcion: "Normas Internacionales de Información Financiera"
+        
+      - valor: "PGC"
+        etiqueta: "Plan General de Contabilidad u otro marco"
+        descripcion: "Se requiere especificar la nota que identifica el marco"
+        es_default: true
+        variables_asociadas:
+          - numero_nota_marco
+    
+  # ==================== CONDICIÓN: LIMITACIÓN AL ALCANCE ====================
+  
+  - id: limitacion_alcance
+    nombre: "¿Existe limitación al alcance?"
+    descripcion: "Indica si hay limitaciones en los procedimientos de auditoría"
+    tipo_control: radio
+    requerido: false
+    seccion: "Opinión de auditoría"
+    dependencia:
+      variable: tipo_opinion
+      valor: "salvedades"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, existe limitación al alcance"
+        descripcion: "Los posibles efectos no pueden determinarse"
+        
+      - valor: "no"
+        etiqueta: "No existe limitación al alcance"
+        descripcion: "Los efectos son determinables"
+        es_default: true
+    
+  # ==================== CONDICIÓN: MOTIVO DE CALIFICACIÓN ====================
+  
+  - id: motivo_calificacion
+    nombre: "Motivo de la opinión con salvedades"
+    descripcion: "Define si la salvedad es por incorrección o limitación"
+    tipo_control: radio
+    requerido: false
+    seccion: "Opinión de auditoría"
+    dependencia:
+      variable: tipo_opinion
+      valor: "salvedades"
+    opciones:
+      - valor: "incorreccion"
+        etiqueta: "Incorrección material"
+        descripcion: "Las cuentas contienen errores materiales"
+        variables_asociadas:
+          - numero_nota_incorreccion
+          - descripcion_incorreccion
+          
+      - valor: "limitacion"
+        etiqueta: "Limitación al alcance"
+        descripcion: "No se pudo obtener evidencia suficiente"
+        variables_asociadas:
+          - numero_nota_limitacion
+          - descripcion_limitacion
+    
+  # ==================== CONDICIÓN: INCERTIDUMBRE FUNCIONAMIENTO ====================
+  
+  - id: incertidumbre_funcionamiento
+    nombre: "¿Existe incertidumbre material sobre empresa en funcionamiento?"
+    descripcion: "Dudas significativas sobre la capacidad de continuar operando"
+    tipo_control: radio
+    requerido: false
+    seccion: "Incertidumbres y énfasis"
+    dependencia:
+      variable: tipo_opinion
+      valor: "favorable"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, existe incertidumbre material"
+        descripcion: "Se incluye párrafo específico sin modificar la opinión"
+        variables_asociadas:
+          - numero_nota_funcionamiento
+          - monto_perdidas
+          - monto_exceso_pasivo
+          
+      - valor: "no"
+        etiqueta: "No existe incertidumbre material"
+        es_default: true
+    
+  # ==================== CONDICIÓN: ÉNFASIS ADICIONAL ====================
+  
+  - id: enfasis_adicional
+    nombre: "¿Incluir párrafo de énfasis adicional?"
+    descripcion: "Llamar la atención sobre un aspecto sin modificar la opinión"
+    tipo_control: radio
+    requerido: false
+    seccion: "Incertidumbres y énfasis"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, incluir párrafo de énfasis"
+        variables_asociadas:
+          - numero_nota_enfasis
+          - descripcion_enfasis
+          
+      - valor: "no"
+        etiqueta: "No incluir párrafo de énfasis"
+        es_default: true
+    
+  # ==================== CONDICIÓN: AMRA VOLUNTARIO (No EIP) ====================
+  
+  - id: amra_voluntario
+    nombre: "¿Incluir AMRA voluntariamente?"
+    descripcion: "Para entidades No EIP que desean incluir aspectos relevantes"
+    tipo_control: radio
+    requerido: false
+    seccion: "Cuestiones clave / AMRA"
+    dependencia:
+      variable: tipo_entidad
+      valor: "No EIP"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, incluir AMRA voluntariamente"
+        variables_asociadas:
+          - otros_amra
+          
+      - valor: "no"
+        etiqueta: "No incluir AMRA"
+        es_default: true
+    
+  # ==================== CONDICIÓN: OTROS KAM (EIP) ====================
+  
+  - id: otros_kam
+    nombre: "¿Existen otras cuestiones clave de auditoría (KAM)?"
+    descripcion: "Cuestiones adicionales para reportar en entidades EIP"
+    tipo_control: radio
+    requerido: false
+    seccion: "Cuestiones clave / AMRA"
+    dependencia:
+      variable: tipo_entidad
+      valor: "EIP"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, existen otros KAM"
+        variables_asociadas:
+          - numero_nota_kam
+          - descripcion_kam_amra
+          - procedimientos_auditoria_kam
+          
+      - valor: "no"
+        etiqueta: "No existen otros KAM"
+        es_default: true
+    
+  # ==================== CONDICIÓN: OTROS AMRA (No EIP) ====================
+  
+  - id: otros_amra
+    nombre: "¿Existen otros aspectos más relevantes (AMRA)?"
+    descripcion: "Aspectos adicionales para reportar voluntariamente"
+    tipo_control: radio
+    requerido: false
+    seccion: "Cuestiones clave / AMRA"
+    dependencia:
+      variable: amra_voluntario
+      valor: "si"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, existen otros AMRA"
+        variables_asociadas:
+          - numero_nota_kam
+          - descripcion_kam_amra
+          - procedimientos_auditoria_kam
+          
+      - valor: "no"
+        etiqueta: "No existen otros AMRA"
+        es_default: true
+    
+  # ==================== CONDICIÓN: OTRAS CUESTIONES ====================
+  
+  - id: otras_cuestiones
+    nombre: "¿Incluir sección 'Otras cuestiones'?"
+    descripcion: "Para informar sobre auditorías anteriores o situaciones especiales"
+    tipo_control: radio
+    requerido: false
+    seccion: "Otras cuestiones"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, incluir otras cuestiones"
+        variables_asociadas:
+          - texto_cuestiones
+          
+      - valor: "no"
+        etiqueta: "No incluir otras cuestiones"
+        es_default: true
+    
+  - id: texto_cuestiones
+    nombre: "Tipo de otra cuestión a informar"
+    descripcion: "Selecciona el tipo de cuestión adicional"
+    tipo_control: radio
+    requerido: false
+    seccion: "Otras cuestiones"
+    dependencia:
+      variable: otras_cuestiones
+      valor: "si"
+    opciones:
+      - valor: "informe otro auditor"
+        etiqueta: "Informe de otro auditor en ejercicio anterior"
+        descripcion: "Las cuentas del ejercicio anterior fueron auditadas por otro auditor"
+        variables_asociadas:
+          - fecha_informe_auditoria_ejercicioanterior
+          
+      - valor: "cuentas anuales no auditadas"
+        etiqueta: "Cuentas anuales del ejercicio anterior no auditadas"
+        descripcion: "El ejercicio anterior no fue objeto de auditoría"
+          
+      - valor: "otros"
+        etiqueta: "Otras cuestiones (texto libre)"
+        descripcion: "Requiere completar texto manualmente"
+    
+  # ==================== CONDICIÓN: OBLIGACIÓN INFORME GESTIÓN ====================
+  
+  - id: obligacion_presentar_informe_gestion
+    nombre: "¿Está obligada a presentar informe de gestión?"
+    descripcion: "Define si la entidad debe presentar informe de gestión"
+    tipo_control: radio
+    requerido: true
+    seccion: "Otra información"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, presenta informe de gestión"
+        es_default: true
+        
+      - valor: "no"
+        etiqueta: "No presenta informe de gestión"
+    
+  # ==================== CONDICIÓN: OBLIGACIÓN EINF ====================
+  
+  - id: obligacion_EINF
+    nombre: "¿Está obligada a presentar estado de información no financiera (EINF)?"
+    descripcion: "Para grandes empresas y grupos"
+    tipo_control: radio
+    requerido: false
+    seccion: "Otra información"
+    dependencia:
+      variable: obligacion_presentar_informe_gestion
+      valor: "si"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, presenta EINF"
+        variables_asociadas:
+          - einf_facilitado
+          
+      - valor: "no"
+        etiqueta: "No presenta EINF"
+        es_default: true
+    
+  - id: einf_facilitado
+    nombre: "¿Se ha facilitado el EINF?"
+    descripcion: "Indica si el EINF se ha presentado correctamente"
+    tipo_control: radio
+    requerido: false
+    seccion: "Otra información"
+    dependencia:
+      variable: obligacion_EINF
+      valor: "si"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, se ha facilitado"
+        es_default: true
+        
+      - valor: "no"
+        etiqueta: "No se ha facilitado"
+    
+  # ==================== CONDICIÓN: ENTIDAD COTIZADA ====================
+  
+  - id: entidad_cotizada
+    nombre: "¿Es una entidad cotizada?"
+    descripcion: "Determina requisitos adicionales de formato y reporting"
+    tipo_control: radio
+    requerido: false
+    seccion: "Características de la entidad"
+    dependencia:
+      variable: tipo_entidad
+      valor: "EIP"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, es cotizada"
+        descripcion: "Incluye formato FEUE y requisitos específicos"
+        
+      - valor: "no"
+        etiqueta: "No es cotizada"
+        es_default: true
+    
+  # ==================== CONDICIÓN: INCLUIR PAR ====================
+  
+  - id: incluir_PAR_section
+    nombre: "¿Incluir sección sobre Propuesta de Aplicación del Resultado?"
+    descripcion: "Solo para cuentas abreviadas"
+    tipo_control: radio
+    requerido: false
+    seccion: "Otra información"
+    dependencia:
+      variable: tipo_cuentas
+      valor: "abreviadas"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, incluir PAR"
+        
+      - valor: "no"
+        etiqueta: "No incluir PAR"
+        es_default: true
+    
+  # ==================== CONDICIÓN: AUDITOR CONTINUIDAD ====================
+  
+  - id: auditor_continuidad
+    nombre: "¿Fue designado auditor con anterioridad?"
+    descripcion: "Indica si ya era auditor de la entidad previamente"
+    tipo_control: radio
+    requerido: false
+    seccion: "Información de auditoría"
+    dependencia:
+      variable: tipo_entidad
+      valor: "EIP"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, designado previamente"
+        descripcion: "Ya venía realizando la auditoría"
+        
+      - valor: "no"
+        etiqueta: "No fue designado previamente"
+        descripcion: "Primera vez como auditor de esta entidad"
+        es_default: true
+
+  # ==================== CONDICIÓN: FIRMA DIGITAL ====================
+  
+  - id: firma_digital
+    nombre: "¿El informe lleva firma digital?"
+    descripcion: "Determina si se incluye referencia al sello del ICJCE"
+    tipo_control: radio
+    requerido: false
+    seccion: "Información del auditor"
+    opciones:
+      - valor: "si"
+        etiqueta: "Sí, firma digital"
+        descripcion: "Incluye referencia al sello distintivo"
+        
+      - valor: "no"
+        etiqueta: "No, firma física"
+        es_default: true
+
+# ==================== COMBINACIONES ESPECIALES ====================
+
+combinaciones_especiales:
+  - nombre: "Opinión con salvedades por incorrección"
+    condiciones:
+      tipo_opinion: "salvedades"
+      motivo_calificacion: "incorreccion"
+    descripcion: "Genera texto específico para salvedades por incorreción material"
+    
+  - nombre: "Opinión con salvedades por limitación"
+    condiciones:
+      tipo_opinion: "salvedades"
+      motivo_calificacion: "limitacion"
+    descripcion: "Genera texto específico para salvedades por limitación al alcance"
+    
+  - nombre: "EIP con cuentas consolidadas"
+    condiciones:
+      tipo_entidad: "EIP"
+      tipo_cuentas: "consolidadas"
+    descripcion: "Texto adaptado para grupos EIP"
+    
+  - nombre: "Opinión favorable con incertidumbre funcionamiento"
+    condiciones:
+      tipo_opinion: "favorable"
+      incertidumbre_funcionamiento: "si"
+    descripcion: "Incluye párrafo de incertidumbre sin modificar opinión"
+    
+  - nombre: "No KAM/AMRA con opinión modificada"
+    condiciones:
+      tipo_opinion: ["salvedades", "desfavorable", "denegada"]
+      otros_kam: "no"
+    descripcion: "Solo se reporta la cuestión de la opinión modificada"
+
+# ==================== TEXTOS DERIVADOS ====================
+
+textos_derivados:
+
+  encargo_auditoria:
+    descripcion: "Texto que indica el tipo de encargo de auditoría"
+    reglas:
+      - condicion:
+          campo: "tipo_auditoria"
+          igual: "Voluntaria"
+        texto: "por encargo de {{ entidad_encargante }}"
+      - condicion:
+          campo: "tipo_auditoria"
+          igual: "Obligatoria"
+        texto: ""
+
+  titulo_informe:
+    descripcion: "Título del informe según tipo de cuentas"
+    reglas:
+      - condicion:
+          campo: "tipo_cuentas"
+          igual: "consolidadas"
+        texto: "Auditoría de Cuentas Anuales Consolidadas emitido por un Auditor Independiente"
+      - condicion:
+          campo: "tipo_cuentas"
+          igual: "abreviadas"
+        texto: "Auditoría de Cuentas Anuales Abreviadas emitido por un Auditor Independiente"
+      - condicion:
+          campo: "tipo_cuentas"
+          igual: "normales"
+        texto: "Auditoría de Cuentas Anuales emitido por un Auditor Independiente"
+
+  informe_eip:
+    descripcion: "Encabezado para informes de EIP"
+    reglas:
+      - condicion:
+          and:
+            - campo: "tipo_entidad"
+              igual: "EIP"
+            - campo: "tipo_cuentas"
+              igual: "consolidadas"
+        texto: "Informe sobre las cuentas anuales consolidadas"
+      - condicion:
+          campo: "tipo_entidad"
+          igual: "EIP"
+        texto: "Informe sobre las cuentas anuales"
+      - condicion:
+          campo: "tipo_entidad"
+          igual: "No EIP"
+        texto: ""
+
+# ==================== CONFIGURACIÓN GENERAL ====================
+
+configuracion:
+  version: "2.0"
+  motor_condicional: "Jinja2"
+  sintaxis_jinja2:
+    inicio_condicion: "{% if"
+    fin_condicion: "{% endif %}"
+    else: "{% else %}"
+    elif: "{% elif"
+    comentario_inicio: "{#"
+    comentario_fin: "#}"
+    variable_inicio: "{{"
+    variable_fin: "}}"
+  operadores_soportados:
+    comparacion:
+      - "=="
+      - "!="
+      - "<"
+      - ">"
+      - "<="
+      - ">="
+    logicos:
+      - "and"
+      - "or"
+      - "not"
+    pertenencia:
+      - "in"
+      - "not in"

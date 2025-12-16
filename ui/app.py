@@ -1,0 +1,702 @@
+"""
+App - Aplicación principal Streamlit
+
+Interfaz web unificada que se adapta dinámicamente a los plugins disponibles.
+Incluye funcionalidad de metadatos para guardar y cargar configuraciones.
+"""
+
+import sys
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+
+import streamlit as st
+
+# Ensure the project root is in the Python path when running directly with Streamlit
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from core.utils import setup_logger, get_outputs_dir, safe_filename
+from core.config_loader import get_fields_by_section, get_general_config
+from core.word_engine import render_word_report
+from core.ui_runtime import (
+    render_field,
+    render_conditional_variable,
+    should_show_field_in_ui,
+    validate_form_data,
+    show_validation_errors,
+    show_success_message,
+)
+from core.metadata import (
+    create_metadata,
+    save_metadata,
+    load_all_metadata,
+    load_metadata_by_report_id,
+    get_metadata_summary,
+)
+from ui.router import (
+    list_available_reports,
+    load_report_plugin,
+    get_build_context_function,
+    get_template_path,
+    get_plugin_info,
+)
+
+logger = setup_logger(__name__)
+
+
+# ==============================================================================
+# CONFIGURACIÓN DE LA PÁGINA
+# ==============================================================================
+
+st.set_page_config(
+    page_title="Plataforma de Generación de Informes",
+    page_icon="📄",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+
+# ==============================================================================
+# ESTADO DE SESIÓN
+# ==============================================================================
+
+def init_session_state():
+    """Inicializa el estado de sesión de Streamlit."""
+    # Leer query_params una vez al inicio
+    query_params = st.query_params
+
+    if 'selected_report' not in st.session_state:
+        # Intentar leer desde query_params si no está en session_state
+        report_from_url = query_params.get("report", None)
+        st.session_state.selected_report = report_from_url
+
+    if 'plugin_config' not in st.session_state:
+        st.session_state.plugin_config = None
+
+    if 'form_data' not in st.session_state:
+        st.session_state.form_data = {}
+
+    if 'work_mode' not in st.session_state:
+        # Leer mode desde query_params si está disponible
+        mode_from_url = query_params.get("mode", None)
+        st.session_state.work_mode = mode_from_url if mode_from_url in ['nuevo', 'cargar'] else 'nuevo'
+
+    if 'loaded_metadata_id' not in st.session_state:
+        st.session_state.loaded_metadata_id = None
+
+    if 'initialized' not in st.session_state:
+        st.session_state.initialized = False
+
+
+# ==============================================================================
+# SELECCIÓN DE PLUGIN Y MODO DE TRABAJO
+# ==============================================================================
+
+def render_sidebar():
+    """Renderiza el sidebar con selección de informe y modo de trabajo."""
+    st.sidebar.title("📄 Plataforma de Informes")
+    st.sidebar.markdown("---")
+
+    # Selector de modo de trabajo
+    st.sidebar.subheader("🔧 Modo de trabajo")
+
+    # Determinar el índice por defecto basado en el work_mode actual
+    current_work_mode = st.session_state.work_mode
+    mode_index = 0 if current_work_mode == 'nuevo' else 1
+
+    work_mode = st.sidebar.radio(
+        "Selecciona el modo",
+        options=['nuevo', 'cargar'],
+        format_func=lambda x: "✨ Crear nuevo informe" if x == 'nuevo' else "📂 Cargar desde metadatos",
+        index=mode_index,
+        key="work_mode_selector"
+    )
+
+    # Actualizar modo si cambió
+    if st.session_state.work_mode != work_mode:
+        st.session_state.work_mode = work_mode
+        # Solo limpiar y hacer rerun si ya estábamos inicializados (cambio manual por el usuario)
+        if st.session_state.initialized:
+            st.session_state.form_data = {}
+            st.session_state.loaded_metadata_id = None
+            st.session_state.selected_report = None
+            st.session_state.plugin_config = None
+            st.rerun()
+
+    st.sidebar.markdown("---")
+
+    # Obtener plugins disponibles
+    available_reports = list_available_reports()
+
+    if not available_reports:
+        st.sidebar.error("No se encontraron plugins de informes")
+        return None, None
+
+    # Preselección de informe desde parámetros de la URL (?report=<id>)
+    query_params = st.query_params
+    preselected_report_id = query_params.get("report", None)
+
+    # Modo: Crear nuevo informe
+    if st.session_state.work_mode == 'nuevo':
+        st.sidebar.subheader("📋 Seleccionar tipo de informe")
+
+        report_names = [r.nombre for r in available_reports]
+        report_ids = [r.id for r in available_reports]
+
+        # Determinar índice por defecto usando la preselección o la selección previa
+        default_report_id = preselected_report_id or st.session_state.selected_report
+        default_index = 0
+        if default_report_id in report_ids:
+            default_index = report_ids.index(default_report_id)
+
+        selected_name = st.sidebar.selectbox(
+            "Tipo de informe",
+            options=report_names,
+            index=default_index,
+            key="report_selector_nuevo"
+        )
+
+        selected_idx = report_names.index(selected_name)
+        selected_id = report_ids[selected_idx]
+        selected_manifest = available_reports[selected_idx]
+
+        # Mostrar info del plugin
+        with st.sidebar.expander("ℹ️ Información del plugin"):
+            st.write(f"**ID:** {selected_manifest.id}")
+            st.write(f"**Versión:** {selected_manifest.version}")
+            if selected_manifest.descripcion:
+                st.write(f"**Descripción:** {selected_manifest.descripcion}")
+            if selected_manifest.autor:
+                st.write(f"**Autor:** {selected_manifest.autor}")
+
+        return selected_id, None
+
+    # Modo: Cargar desde metadatos
+    else:
+        st.sidebar.subheader("📂 Cargar desde metadatos")
+
+        # Cargar todos los metadatos
+        all_metadata = load_all_metadata()
+
+        if not all_metadata:
+            st.sidebar.warning("No hay metadatos guardados")
+            return None, None
+
+        # Primero seleccionar tipo de informe
+        report_ids_with_meta = list(set([m.report_id for m in all_metadata]))
+        report_names_map = {r.id: r.nombre for r in available_reports}
+
+        # Preselección basada en query param si aplica
+        default_meta_index = 0
+        if preselected_report_id in report_ids_with_meta:
+            default_meta_index = report_ids_with_meta.index(preselected_report_id)
+
+        selected_report_id = st.sidebar.selectbox(
+            "Tipo de informe",
+            options=report_ids_with_meta,
+            format_func=lambda rid: report_names_map.get(rid, rid),
+            index=default_meta_index,
+            key="report_selector_cargar"
+        )
+
+        # Filtrar metadatos por tipo de informe
+        filtered_metadata = [m for m in all_metadata if m.report_id == selected_report_id]
+
+        if not filtered_metadata:
+            st.sidebar.warning(f"No hay metadatos para '{selected_report_id}'")
+            return None, None
+
+        # Seleccionar registro específico
+        metadata_options = {get_metadata_summary(m): m.id for m in filtered_metadata}
+
+        selected_summary = st.sidebar.selectbox(
+            "Seleccionar configuración",
+            options=list(metadata_options.keys()),
+            key="metadata_selector"
+        )
+
+        selected_metadata_id = metadata_options[selected_summary]
+
+        # Encontrar el metadata completo
+        selected_metadata = next((m for m in filtered_metadata if m.id == selected_metadata_id), None)
+
+        if selected_metadata:
+            with st.sidebar.expander("📊 Detalles del metadata"):
+                st.write(f"**Generado:** {selected_metadata.timestamp}")
+                st.write(f"**Por:** {selected_metadata.generated_by}")
+                st.write(f"**Archivo:** {selected_metadata.output_filename}")
+                if selected_metadata.description:
+                    st.write(f"**Descripción:** {selected_metadata.description}")
+
+        return selected_report_id, selected_metadata
+
+
+# ==============================================================================
+# RENDERIZADO DE FORMULARIO
+# ==============================================================================
+
+def render_conditional_variables_section(plugin_config: Dict[str, Any],
+                                        context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Renderiza las variables condicionales.
+
+    Args:
+        plugin_config: Configuración del plugin
+        context: Contexto actual
+
+    Returns:
+        Diccionario con valores de variables condicionales
+    """
+    st.header("⚙️ Configuración del Informe")
+
+    conditional_vars = plugin_config['conditional_variables']
+    values = {}
+
+    if not conditional_vars:
+        st.info("Este informe no tiene variables condicionales")
+        return values
+
+    # Agrupar por sección
+    vars_by_section = {}
+    for var in conditional_vars:
+        section = var.seccion or "General"
+        if section not in vars_by_section:
+            vars_by_section[section] = []
+        vars_by_section[section].append(var)
+
+    # Renderizar cada sección
+    for section, variables in vars_by_section.items():
+        with st.expander(f"📋 {section}", expanded=True):
+            for var in variables:
+                # Verificar dependencia
+                if var.dependencia:
+                    dep = var.dependencia
+                    parent_value = context.get(dep.variable)
+
+                    if dep.valor and parent_value != dep.valor:
+                        continue
+                    if dep.valor_no and parent_value == dep.valor_no:
+                        continue
+
+                # Renderizar variable
+                value = render_conditional_variable(var, context.get(var.id))
+                if value is not None:
+                    values[var.id] = value
+                    context[var.id] = value
+
+    return values
+
+
+def render_simple_fields_section(
+    plugin_config: Dict[str, Any],
+    context: Dict[str, Any],
+    fields: Optional[List[Any]] = None,
+    header_title: str = "📝 Datos del Informe",
+    default_expanded: bool = True,
+) -> Dict[str, Any]:
+    """
+    Renderiza los campos simples organizados por secciones.
+
+    Args:
+        plugin_config: Configuración del plugin
+        context: Contexto actual con variables condicionales
+        fields: Lista de campos a renderizar (opcional)
+        header_title: Título de la sección
+        default_expanded: Si los expanders deben estar expandidos por defecto
+
+    Returns:
+        Diccionario con valores de campos
+    """
+    st.header(header_title)
+
+    simple_fields = fields if fields is not None else plugin_config['simple_fields']
+
+    if not simple_fields:
+        st.info("Este informe no tiene campos simples")
+        return {}
+
+    # Agrupar por sección
+    fields_by_section = get_fields_by_section(simple_fields)
+
+    # Obtener orden de secciones si está definido
+    config_dir = plugin_config['config_dir']
+    general_config = get_general_config(config_dir)
+    sections_order = general_config.get('secciones_orden', [])
+
+    # Determinar orden
+    if sections_order:
+        sections = [s for s in sections_order if s in fields_by_section]
+        sections.extend([s for s in fields_by_section.keys() if s not in sections])
+    else:
+        sections = list(fields_by_section.keys())
+
+    # Renderizar campos usando render_section_fields que soporta date groups
+    all_values = {}
+
+    for section in sections:
+        if section not in fields_by_section:
+            continue
+
+        with st.expander(f"📋 {section}", expanded=default_expanded):
+            # Usar render_section_fields modificado para soportar date groups
+            from report_platform.core.ui_runtime import render_section_fields
+
+            section_values = render_section_fields(
+                section_name="",  # No mostrar subheader porque ya tenemos el expander
+                fields=fields_by_section[section],
+                context=context,
+                config_dir=config_dir,
+            )
+            all_values.update(section_values)
+
+    return all_values
+
+
+def render_tables_section(plugin_config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    """Renderiza el área de tablas dinámicas."""
+
+    st.header("📊 Tablas dinámicas")
+
+    # Obtener el ID del informe
+    manifest = plugin_config.get('manifest')
+    report_id = manifest.id if manifest else None
+
+    # Si es el informe de transferencia de precio, usar el UI especializado
+    if report_id == 'transferencia_precio':
+        try:
+            from report_platform.core.tp_tables_ui import render_tp_tables_section
+            import yaml
+
+            # Cargar configuración de tablas
+            config_dir = plugin_config['config_dir']
+            tablas_path = Path(config_dir) / "tablas.yaml"
+
+            if tablas_path.exists():
+                with open(tablas_path, 'r', encoding='utf-8') as f:
+                    cfg_tab = yaml.safe_load(f)
+
+                # Extraer simple_inputs del contexto
+                simple_inputs = {k: v for k, v in context.items() if not k.startswith('_')}
+
+                # Renderizar tablas
+                table_values = render_tp_tables_section(cfg_tab, simple_inputs)
+                return table_values
+            else:
+                st.warning(f"No se encontró el archivo tablas.yaml en {config_dir}")
+                return {}
+
+        except ImportError as e:
+            st.error(f"Error importando módulo de tablas: {e}")
+            return {}
+        except Exception as e:
+            st.error(f"Error renderizando tablas de transferencia de precio: {e}")
+            logger.error(f"Error en render_tables_section: {e}", exc_info=True)
+            return {}
+
+    # Para otros informes, usar el sistema genérico
+    tables = plugin_config.get('tables') or []
+    values: Dict[str, Any] = {}
+
+    if not tables:
+        st.info("Este informe no tiene tablas configuradas en config/tablas.yaml")
+        return values
+
+    for table in tables:
+        with st.expander(f"📋 {table.nombre}", expanded=True):
+            if table.descripcion:
+                st.write(table.descripcion)
+
+            st.info(
+                "Sistema de captura de datos genérico para tablas dinámicas en desarrollo"
+            )
+
+    return values
+
+
+# ==============================================================================
+# GENERACIÓN DE INFORME
+# ==============================================================================
+
+def generate_report(plugin_config: Dict[str, Any], form_data: Dict[str, Any],
+                   save_meta: bool = True) -> Optional[Path]:
+    """
+    Genera el informe usando el plugin y los datos del formulario.
+
+    Args:
+        plugin_config: Configuración del plugin
+        form_data: Datos del formulario
+        save_meta: Si debe guardar metadatos
+
+    Returns:
+        Path al archivo generado o None si hay error
+    """
+    try:
+        # Obtener función build_context
+        build_context = get_build_context_function(plugin_config)
+
+        # Construir contexto
+        logger.info("Construyendo contexto con build_context()...")
+        context = build_context(form_data, plugin_config['config_dir'])
+
+        # Obtener path de plantilla
+        template_path = get_template_path(plugin_config)
+
+        # Generar nombre de archivo
+        manifest = plugin_config['manifest']
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"{manifest.id}_{timestamp}"
+
+        # Renderizar informe
+        logger.info("Renderizando informe...")
+        output_path = render_word_report(template_path, context, output_filename)
+
+        # Guardar metadatos si se solicita
+        if save_meta:
+            metadata = create_metadata(
+                report_id=manifest.id,
+                report_name=manifest.nombre,
+                template_version=manifest.version,
+                input_data=form_data,
+                output_path=output_path,
+                generated_by="usuario",
+                description=None
+            )
+            save_metadata(metadata)
+            logger.info(f"Metadatos guardados: {metadata.id}")
+
+        return output_path
+
+    except Exception as e:
+        logger.error(f"Error generando informe: {e}")
+        st.error(f"Error generando informe: {e}")
+        return None
+
+
+# ==============================================================================
+# INTERFAZ PRINCIPAL
+# ==============================================================================
+
+def render_html_selector():
+    """Muestra el selector HTML de informes cuando no hay selección."""
+    # Leer el archivo HTML
+    html_path = Path(__file__).parent / "report_selector.html"
+
+    if html_path.exists():
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        # Mostrar el HTML usando components
+        import streamlit.components.v1 as components
+        components.html(html_content, height=800, scrolling=True)
+    else:
+        st.error("No se encontró el archivo report_selector.html")
+        st.info("Por favor, selecciona un tipo de informe en el menú lateral")
+
+
+def main():
+    """Función principal de la aplicación."""
+    init_session_state()
+
+    # Renderizar sidebar y obtener selección
+    selected_report_id, selected_metadata = render_sidebar()
+
+    # Marcar como inicializado después del primer render
+    if not st.session_state.initialized:
+        st.session_state.initialized = True
+
+    if not selected_report_id:
+        # Mostrar el selector HTML en lugar de un mensaje de advertencia
+        render_html_selector()
+        st.stop()
+
+    # Cargar plugin si cambió la selección o es nueva
+    if (st.session_state.selected_report != selected_report_id or
+        st.session_state.plugin_config is None):
+
+        with st.spinner(f"Cargando configuración de {selected_report_id}..."):
+            plugin_config = load_report_plugin(selected_report_id)
+
+        if not plugin_config:
+            st.error(f"Error cargando plugin: {selected_report_id}")
+            st.stop()
+
+        st.session_state.selected_report = selected_report_id
+        st.session_state.plugin_config = plugin_config
+
+        # Si estamos en modo cargar y tenemos metadata, prellenar form_data
+        if st.session_state.work_mode == 'cargar' and selected_metadata:
+            st.session_state.form_data = selected_metadata.input_data.copy()
+            st.session_state.loaded_metadata_id = selected_metadata.id
+        else:
+            st.session_state.form_data = {}
+            st.session_state.loaded_metadata_id = None
+
+        # Mostrar información del plugin
+        plugin_info = get_plugin_info(plugin_config)
+        st.success(f"✅ Plugin cargado: {plugin_info['nombre']} (v{plugin_info['version']})")
+
+        with st.expander("📊 Estadísticas del plugin"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Campos", plugin_info['num_campos'])
+            with col2:
+                st.metric("Variables condicionales", plugin_info['num_condicionales'])
+            with col3:
+                st.metric("Bloques de texto", plugin_info['num_bloques'])
+
+    # Si estamos en modo cargar y el metadata cambió, actualizar form_data
+    elif (st.session_state.work_mode == 'cargar' and selected_metadata and
+          st.session_state.loaded_metadata_id != selected_metadata.id):
+        st.session_state.form_data = selected_metadata.input_data.copy()
+        st.session_state.loaded_metadata_id = selected_metadata.id
+        st.info("✅ Datos cargados desde metadatos")
+
+    plugin_config = st.session_state.plugin_config
+
+    simple_fields = plugin_config['simple_fields']
+    local_fields = [f for f in simple_fields if getattr(f, "ambito", "global") == "local"]
+    global_fields = [f for f in simple_fields if f not in local_fields]
+
+    # Mostrar indicador si estamos en modo cargar
+    if st.session_state.work_mode == 'cargar' and st.session_state.loaded_metadata_id:
+        st.info(f"📂 **Modo:** Cargado desde metadatos (ID: {st.session_state.loaded_metadata_id[:20]}...)")
+
+    # Contexto para seguimiento de valores
+    context = dict(st.session_state.form_data)
+
+    # Reorganizar tabs para que Variables simples esté primero, luego Variables condicionales
+    tab_simple, tab_cond, tab_tables, tab_design, tab_files = st.tabs([
+        "📝 Variables simples",
+        "⚙️ Variables condicionales",
+        "📊 Tablas",
+        "🎨 Diseño de Tablas",
+        "📁 Archivos",
+    ])
+
+    with tab_simple:
+        field_values = render_simple_fields_section(
+            plugin_config,
+            context,
+            fields=global_fields,
+            header_title="📝 Variables simples",
+            default_expanded=True,
+        )
+        context.update(field_values)
+
+    with tab_cond:
+        cond_values = render_conditional_variables_section(plugin_config, context)
+        context.update(cond_values)
+
+        if local_fields:
+            st.markdown("---")
+            local_values = render_simple_fields_section(
+                plugin_config,
+                context,
+                fields=local_fields,
+                header_title="🔗 Variables dependientes de condiciones",
+                default_expanded=True,
+            )
+            context.update(local_values)
+
+    with tab_tables:
+        table_values = render_tables_section(plugin_config, context)
+        context.update(table_values)
+
+    with tab_design:
+        # Importar la función de diseño de tablas
+        from report_platform.ui.table_design_ui import render_table_design_window
+
+        # Renderizar la ventana de diseño de tablas
+        table_design_config = render_table_design_window()
+
+        # Guardar la configuración de diseño en el contexto
+        context['_table_design_config'] = table_design_config
+
+    with tab_files:
+        st.header("📁 Archivos de configuración del informe")
+        config_dir = plugin_config['config_dir']
+        st.write(f"Directorio de configuración: `{config_dir}`")
+
+        st.markdown("**Carga de YAML detectada:**")
+        st.markdown(
+            f"- `variables_simples.yaml`: { '✅' if plugin_config['simple_fields'] else '⚠️ Sin variables'}"
+        )
+        st.markdown(
+            f"- `variables_condicionales.yaml`: { '✅' if plugin_config['conditional_variables'] else '⚠️ Sin variables'}"
+        )
+        st.markdown(
+            f"- `tablas.yaml`: { '✅' if plugin_config.get('tables') else '⚠️ No hay tablas definidas'}"
+        )
+        st.markdown(
+            f"- `bloques_texto.yaml`: { '✅' if plugin_config['text_blocks'] else '⚠️ No hay bloques configurados'}"
+        )
+
+        st.info(
+            "Cada categoría se muestra en una pestaña independiente."
+            " Si una variable simple es local, solo se mostrará cuando la condición correspondiente esté activa."
+        )
+
+    # Guardar datos en sesión
+    st.session_state.form_data = context
+
+    st.markdown("---")
+
+    # Botón de generación
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        if st.button("🚀 Generar Informe", type="primary", use_container_width=True):
+
+            # Validar formulario
+            all_fields = plugin_config['simple_fields']
+            is_valid, errors = validate_form_data(all_fields, context)
+
+            if not is_valid:
+                show_validation_errors(errors)
+            else:
+                # Generar informe
+                with st.spinner("Generando informe..."):
+                    output_path = generate_report(plugin_config, context, save_meta=True)
+
+                if output_path:
+                    show_success_message(f"✅ Informe generado exitosamente")
+
+                    st.info(f"**Archivo:** `{output_path.name}`")
+                    st.info(f"**Ubicación:** `{output_path}`")
+                    st.success("💾 Metadatos guardados para futura reutilización")
+
+                    # Botón de descarga
+                    try:
+                        with open(output_path, 'rb') as f:
+                            file_data = f.read()
+
+                        st.download_button(
+                            label="📥 Descargar Informe",
+                            data=file_data,
+                            file_name=output_path.name,
+                            mime='application/octet-stream',
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"Error al preparar descarga: {e}")
+
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        "<div style='text-align: center; color: gray;'>"
+        "Plataforma de Generación de Informes v2.0 | "
+        "Desarrollado por Jimmy - Forvis Mazars España | "
+        "Con funcionalidad de metadatos para reutilización"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+
+# ==============================================================================
+# PUNTO DE ENTRADA
+# ==============================================================================
+
+if __name__ == "__main__":
+    main()

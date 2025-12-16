@@ -1,0 +1,101 @@
+{# ==============================================================================
+   PLANTILLA DE INFORME DE AUDITORÍA - VERSIÓN REFACTORIZADA (Esquema A)
+   ==============================================================================
+   
+   Esta plantilla SOLO contiene variables simples {{ variable }}.
+   Toda la lógica condicional se procesa en Python (build_context) y se define
+   en el archivo bloques_texto.yaml.
+   
+   Versión: 3.0 - Refactorizada según Esquema A
+   ============================================================================== #}
+
+Informe de {{ titulo_informe }}
+
+A {{ Organo }}; de {{ nombre_entidad }}, {{ encargo_auditoria }}
+
+{{ informe_eip }}
+
+{{ titulo_tipo_opinion }}
+
+{{ descripcion_cuentas_auditadas }}
+
+{# ==================== SECCIÓN DE OPINIÓN ==================== #}
+
+{{ parrafo_opinion }}
+
+{# ==================== FUNDAMENTO DE LA OPINIÓN ==================== #}
+
+{{ titulo_fundamento }}
+
+{{ parrafo_fundamento_calificacion }}
+
+{{ texto_base_fundamento }}
+
+{# ==================== INCERTIDUMBRE EMPRESA EN FUNCIONAMIENTO ==================== #}
+
+{{ seccion_incertidumbre_funcionamiento }}
+
+{# ==================== PÁRRAFO DE ÉNFASIS ==================== #}
+
+{{ seccion_enfasis }}
+
+{# ==================== CUESTIONES CLAVE / AMRA ==================== #}
+
+{{ seccion_kam_amra }}
+
+{# ==================== OTRAS CUESTIONES ==================== #}
+
+{{ seccion_otras_cuestiones }}
+
+{# ==================== OTRA INFORMACIÓN: INFORME DE GESTIÓN ==================== #}
+
+{{ seccion_otra_informacion }}
+
+{# ==================== PROPUESTA APLICACIÓN RESULTADO (CUENTAS ABREVIADAS) ==================== #}
+
+{{ seccion_par_abreviadas }}
+
+{# ==================== RESPONSABILIDAD DE LOS ADMINISTRADORES ==================== #}
+
+{{ titulo_responsabilidad_administradores }}
+
+{{ texto_responsabilidad_administradores }}
+
+{{ texto_comision_auditoria }}
+
+{# ==================== RESPONSABILIDADES DEL AUDITOR ==================== #}
+
+Responsabilidades del auditor en relación con la auditoría de las cuentas anuales
+
+Nuestros objetivos son obtener una seguridad razonable de que las cuentas anuales en su conjunto están libres de incorrección material, debida a fraude o error, y emitir un informe de auditoría que contiene nuestra opinión.
+
+Seguridad razonable es un alto grado de seguridad pero no garantiza que una auditoría realizada de conformidad con la normativa reguladora de la actividad de auditoría de cuentas vigente en España siempre detecte una incorrección material cuando existe. Las incorrecciones pueden deberse a fraude o error y se consideran materiales si, individualmente o de forma agregada, puede preverse razonablemente que influyan en las decisiones económicas que los usuarios toman basándose en las cuentas anuales.
+
+Como parte de una auditoría de conformidad con la normativa reguladora de la actividad de auditoría de cuentas vigente en España, aplicamos nuestro juicio profesional y mantenemos una actitud de escepticismo profesional durante toda la auditoría. También:
+
+* Identificamos y valoramos los riesgos de incorrección material en las cuentas anuales, debida a fraude o error, diseñamos y aplicamos procedimientos de auditoría para responder a dichos riesgos y obtenemos evidencia de auditoría suficiente y adecuada para proporcionar una base para nuestra opinión. El riesgo de no detectar una incorrección material debida a fraude es más elevado que en el caso de una incorrección material debida a error, ya que el fraude puede implicar colusión, falsificación, omisiones deliberadas, manifestaciones intencionadamente erróneas o la elusión del control interno.
+
+* Obtenemos conocimiento del control interno relevante para la auditoría con el fin de diseñar procedimientos de auditoría que sean adecuados en función de las circunstancias, y no con la finalidad de expresar una opinión sobre la eficacia del control interno de la Entidad.
+
+* Evaluamos si las políticas contables aplicadas son adecuadas y la razonabilidad de las estimaciones contables y la correspondiente información revelada por {{ tipo_administradores }}.
+
+* Concluimos sobre si es adecuada la utilización, por {{ tipo_administradores }}, del principio contable de empresa en funcionamiento y, basándonos en la evidencia de auditoría obtenida, concluimos sobre si existe o no una incertidumbre material relacionada con hechos o con condiciones que pueden generar dudas significativas sobre la capacidad de la Entidad para continuar como empresa en funcionamiento. Si concluimos que existe una incertidumbre material, se requiere que llamemos la atención en nuestro informe de auditoría sobre la correspondiente información revelada en las cuentas anuales o, si dichas revelaciones no son adecuadas, que expresemos una opinión modificada. Nuestras conclusiones se basan en la evidencia de auditoría obtenida hasta la fecha de nuestro informe de auditoría. Sin embargo, hechos o condiciones futuros pueden ser la causa de que la Entidad deje de ser una empresa en funcionamiento.
+
+* Evaluamos la presentación global, la estructura y el contenido de las cuentas anuales, incluida la información revelada, y si las cuentas anuales representan las transacciones y hechos subyacentes de un modo que logran expresar la imagen fiel.
+
+* Nos comunicamos con {{ tipo_administradores }} de la Entidad en relación con, entre otras cuestiones, el alcance y el momento de realización de la auditoría planificados y los hallazgos significativos de la auditoría, así como cualquier deficiencia significativa del control interno que identificamos durante la auditoría.
+
+{{ texto_comunicacion_kam_eip }}
+
+{# ==================== INFORME SOBRE OTROS REQUERIMIENTOS (EIP) ==================== #}
+
+{{ seccion_eip_completa }}
+
+{# ==================== FIRMA Y CIERRE ==================== #}
+
+{{ texto_firma_digital }}
+
+{{ ciudad_auditoria }}, {{ dia_informe_auditoria }} de {{ mes_informe_auditoria }} de {{ ano_informe_auditoria }}
+
+{{ nombre_auditor }}
+ROAC Nº {{ numero_roac_auditor }}

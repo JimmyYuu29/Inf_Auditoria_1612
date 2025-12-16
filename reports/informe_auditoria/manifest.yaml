@@ -1,0 +1,45 @@
+# ==============================================================================
+# MANIFEST - Plugin de Informe de Auditoría
+# ==============================================================================
+
+id: informe_auditoria
+nombre: Informe de Auditoría de Cuentas Anuales
+version: "1.0.0"
+descripcion: >
+  Generación automatizada de informes de auditoría de cuentas anuales
+  según normativa española (LAC) y europea (Reglamento UE 537/2014).
+  
+  Soporta múltiples tipos de opinión, cuentas consolidadas y abreviadas,
+  entidades de interés público (EIP) y cuestiones clave de auditoría.
+
+autor: Jimmy - Forvis Mazars España
+
+# Rutas de recursos
+paths:
+  template: templates/plantilla_informe.docx
+  config_dir: config
+
+# Capacidades del plugin
+features:
+  - Opinión favorable, con salvedades, desfavorable y denegada
+  - Cuentas consolidadas, normales y abreviadas
+  - Soporte EIP (Entidades de Interés Público)
+  - Cuestiones clave de auditoría (KAM) y AMRA
+  - Incertidumbre empresa en funcionamiento
+  - Párrafos de énfasis
+  - Bloques de texto condicionales avanzados
+
+# Metadata adicional
+tags:
+  - auditoría
+  - cuentas anuales
+  - normativa española
+  - ICAC
+  - LAC
+
+# Requisitos
+requirements:
+  python_version: ">=3.11"
+  dependencies:
+    - jinja2
+    - pyyaml

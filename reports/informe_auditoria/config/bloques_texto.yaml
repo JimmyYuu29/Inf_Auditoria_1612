@@ -1,0 +1,1244 @@
+# ==============================================================================
+# BLOQUES DE TEXTO CONDICIONALES - Sistema de Generación de Informes de Auditoría
+# ==============================================================================
+# Este archivo define todos los bloques de texto que dependen de condiciones.
+# Cada bloque tiene:
+#   - id: Identificador único (se usa como {{ id }} en la plantilla)
+#   - descripcion: Explicación del propósito del bloque
+#   - reglas: Lista de condiciones y plantillas de texto
+#     - cuando: Expresión de condición en formato string (evaluada por Python)
+#     - plantilla: Texto con variables Jinja2 simples (solo {{ var }})
+#
+# Versión: 3.0 - Esquema A (lógica externa)
+# ==============================================================================
+
+bloques_texto:
+
+  # ============================================================================
+  # SECCIÓN: ENCABEZADO Y TÍTULO
+  # ============================================================================
+
+  - id: titulo_informe
+    descripcion: "Título deL INFORME, Determina si las cuentas son consolidadas, abreviadas o normales"
+    reglas:
+      - cuando: "tipo_cuentas == 'consolidadas'"
+        plantilla: "Auditoría de Cuentas Anuales Consolidadas emitido por un Auditor Independiente"
+      - cuando: "tipo_cuentas == 'abreviadas'"
+        plantilla: "Auditoría de Cuentas Anuales Abreviadas emitido por un Auditor Independiente"
+      - cuando: "tipo_cuentas == 'normales'"
+        plantilla: "Auditoría de Cuentas Anuales emitido por un Auditor Independiente"
+      - cuando: "True"  # default
+        plantilla: "Auditoría de Cuentas Anuales emitido por un Auditor Independiente"
+
+  - id: titulo_tipo_opinion
+    descripcion: "Título de la sección de opinión según el tipo"
+    reglas:
+      - cuando: "tipo_opinion == 'denegada'"
+        plantilla: "Denegación de opinión"
+      - cuando: "tipo_opinion == 'desfavorable'"
+        plantilla: "Opinión desfavorable"
+      - cuando: "tipo_opinion == 'salvedades'"
+        plantilla: "Opinión con salvedades"
+      - cuando: "True"  # default
+        plantilla: "Opinión"
+
+  - id: encargo_auditoria
+    descripcion: "Texto que indica el tipo de encargo de auditoría"
+    reglas:
+      - cuando: "tipo_auditoria == 'Voluntaria'"
+        plantilla: "por encargo de {{ entidad_encargante }}"
+      - cuando: "True"
+        plantilla: ""
+
+  - id: informe_eip
+    descripcion: "Encabezado para informes de EIP"
+    reglas:
+      - cuando: "tipo_entidad == 'EIP' and tipo_cuentas == 'consolidadas'"
+        plantilla: "Informe sobre las cuentas anuales consolidadas"
+      - cuando: "tipo_entidad == 'EIP'"
+        plantilla: "Informe sobre las cuentas anuales"
+      - cuando: "True"
+        plantilla: ""
+
+  # ============================================================================
+  # SECCIÓN: DESCRIPCIÓN DE CUENTAS AUDITADAS
+  # ============================================================================
+
+  - id: descripcion_cuentas_auditadas
+    descripcion: "Párrafo que describe las cuentas anuales auditadas"
+    reglas:
+      - cuando: "tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          Hemos auditado las cuentas anuales consolidadas de {{ nombre_entidad }} 
+          (la Sociedad dominante) y sus sociedades dependientes (el Grupo), que comprenden 
+          el estado de situación financiera a día {{ dia_cierre_ejercicio }} de 
+          {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, la cuenta de resultados, 
+          el estado del resultado global, el estado de cambios en el patrimonio neto, 
+          el estado de flujos de efectivo y la memoria, todos ellos consolidados 
+          correspondientes al ejercicio terminado en dicha fecha.
+      - cuando: "tipo_cuentas == 'abreviadas'"
+        plantilla: >
+          Hemos auditado las cuentas anuales abreviadas de {{ nombre_entidad }} 
+          (la Entidad), que comprenden el balance abreviado a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, la cuenta de pérdidas 
+          y ganancias abreviada y la memoria abreviada correspondientes al ejercicio 
+          terminado en dicha fecha.
+      - cuando: "True"
+        plantilla: >
+          Hemos auditado las cuentas anuales de {{ nombre_entidad }} (la Entidad), 
+          que comprenden el balance a día {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} 
+          de {{ ano_cierre_ejercicio }}, la cuenta de pérdidas y ganancias, el estado de cambios 
+          en el patrimonio neto, el estado de flujos de efectivo y la memoria correspondientes 
+          al ejercicio terminado en dicha fecha.
+
+  # ============================================================================
+  # SECCIÓN: PÁRRAFOS DE OPINIÓN
+  # ============================================================================
+
+  - id: parrafo_opinion
+    descripcion: "Párrafo de opinión según el tipo de opinión emitida"
+    reglas:
+      # Opinión favorable
+      - cuando: "tipo_opinion == 'favorable' and tipo_cuentas == 'consolidadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, las cuentas anuales consolidadas adjuntas expresan, en todos 
+          los aspectos significativos, la imagen fiel del patrimonio y de la situación financiera 
+          del Grupo a día {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de 
+          {{ ano_cierre_ejercicio }}, así como de sus resultados y flujos de efectivo, todos ellos 
+          consolidados, correspondientes al ejercicio terminado en dicha fecha, de conformidad con 
+          las Normas Internacionales de Información Financiera, adoptadas por la Unión Europea 
+          (NIIF-UE), y demás disposiciones del marco normativo de información financiera que 
+          resultan de aplicación en España y, en particular, con los principios y criterios 
+          contables contenidos en el mismo.
+      
+      - cuando: "tipo_opinion == 'favorable' and tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          En nuestra opinión, las cuentas anuales consolidadas adjuntas expresan, en todos 
+          los aspectos significativos, la imagen fiel del patrimonio y de la situación financiera 
+          del Grupo a día {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de 
+          {{ ano_cierre_ejercicio }}, así como de sus resultados y flujos de efectivo, todos ellos 
+          consolidados, correspondientes al ejercicio terminado en dicha fecha, de conformidad con 
+          el marco normativo de información financiera que resulta de aplicación (que se identifica 
+          en la nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios 
+          y criterios contables contenidos en el mismo.
+      
+      - cuando: "tipo_opinion == 'favorable' and tipo_cuentas == 'abreviadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, las cuentas anuales abreviadas adjuntas expresan, en todos 
+          los aspectos significativos, la imagen fiel del patrimonio y de la situación financiera 
+          de la Entidad a día {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de 
+          {{ ano_cierre_ejercicio }}, así como de sus resultados y flujos de efectivo 
+          correspondientes al ejercicio terminado en dicha fecha, de conformidad con 
+          las Normas Internacionales de Información Financiera, adoptadas por la Unión Europea 
+          (NIIF-UE), y demás disposiciones del marco normativo de información financiera que 
+          resultan de aplicación en España y, en particular, con los principios y criterios 
+          contables contenidos en el mismo.
+      
+      - cuando: "tipo_opinion == 'favorable' and tipo_cuentas == 'abreviadas'"
+        plantilla: >
+          En nuestra opinión, las cuentas anuales abreviadas adjuntas expresan, en todos 
+          los aspectos significativos, la imagen fiel del patrimonio y de la situación financiera 
+          de la Entidad a día {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de 
+          {{ ano_cierre_ejercicio }}, así como de sus resultados y flujos de efectivo 
+          correspondientes al ejercicio terminado en dicha fecha, de conformidad con 
+          el marco normativo de información financiera que resulta de aplicación (que se identifica 
+          en la nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios 
+          y criterios contables contenidos en el mismo.
+      
+      - cuando: "tipo_opinion == 'favorable' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, las cuentas anuales adjuntas expresan, en todos los aspectos 
+          significativos, la imagen fiel del patrimonio y de la situación financiera de la Entidad 
+          a día {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, 
+          así como de sus resultados y flujos de efectivo correspondientes al ejercicio terminado 
+          en dicha fecha, de conformidad con las Normas Internacionales de Información Financiera, 
+          adoptadas por la Unión Europea (NIIF-UE), y demás disposiciones del marco normativo de 
+          información financiera que resultan de aplicación en España y, en particular, con los 
+          principios y criterios contables contenidos en el mismo.
+      
+      - cuando: "tipo_opinion == 'favorable'"
+        plantilla: >
+          En nuestra opinión, las cuentas anuales adjuntas expresan, en todos los aspectos 
+          significativos, la imagen fiel del patrimonio y de la situación financiera de la Entidad 
+          a día {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, 
+          así como de sus resultados y flujos de efectivo correspondientes al ejercicio terminado 
+          en dicha fecha, de conformidad con el marco normativo de información financiera que 
+          resulta de aplicación (que se identifica en la nota {{ numero_nota_marco }} de la memoria) 
+          y, en particular, con los principios y criterios contables contenidos en el mismo.
+
+      # Opinión con salvedades
+      - cuando: "tipo_opinion == 'salvedades' and limitacion_alcance == 'si' and tipo_cuentas == 'consolidadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, excepto por los posibles efectos de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas 
+          anuales consolidadas adjuntas expresan, en todos los aspectos significativos, la imagen 
+          fiel del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con las Normas Internacionales de Información Financiera adoptadas por la Unión Europea 
+          (NIIF-UE), y demás disposiciones del marco normativo de información financiera aplicable 
+          en España y, en particular, con los principios y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and limitacion_alcance == 'si' and tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          En nuestra opinión, excepto por los posibles efectos de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas 
+          anuales consolidadas adjuntas expresan, en todos los aspectos significativos, la imagen 
+          fiel del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con el marco normativo de información financiera que resulta de aplicación (que se identifica 
+          en la nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios 
+          y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and limitacion_alcance == 'si' and tipo_cuentas == 'abreviadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, excepto por los posibles efectos de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas 
+          anuales abreviadas adjuntas expresan, en todos los aspectos significativos, la imagen 
+          fiel del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          correspondientes al ejercicio terminado en dicha fecha, de conformidad con las Normas 
+          Internacionales de Información Financiera adoptadas por la Unión Europea (NIIF-UE), 
+          y demás disposiciones del marco normativo de información financiera aplicable en España 
+          y, en particular, con los principios y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and limitacion_alcance == 'si' and tipo_cuentas == 'abreviadas'"
+        plantilla: >
+          En nuestra opinión, excepto por los posibles efectos de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas 
+          anuales abreviadas adjuntas expresan, en todos los aspectos significativos, la imagen 
+          fiel del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          correspondientes al ejercicio terminado en dicha fecha, de conformidad con el marco 
+          normativo de información financiera que resulta de aplicación (que se identifica en la 
+          nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios y 
+          criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and limitacion_alcance == 'si' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, excepto por los posibles efectos de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas 
+          anuales adjuntas expresan, en todos los aspectos significativos, la imagen fiel del 
+          patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con las Normas Internacionales de Información Financiera adoptadas por la Unión Europea 
+          (NIIF-UE), y demás disposiciones del marco normativo de información financiera aplicable 
+          en España y, en particular, con los principios y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and limitacion_alcance == 'si'"
+        plantilla: >
+          En nuestra opinión, excepto por los posibles efectos de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas 
+          anuales adjuntas expresan, en todos los aspectos significativos, la imagen fiel del 
+          patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con el marco normativo de información financiera que resulta de aplicación (que se identifica 
+          en la nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios 
+          y criterios contables contenidos en el mismo.
+
+      # Salvedades sin limitación (los efectos)
+      - cuando: "tipo_opinion == 'salvedades' and tipo_cuentas == 'consolidadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, excepto por los efectos de la(s) cuestión(es) descrita(s) en la 
+          sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas anuales 
+          consolidadas adjuntas expresan, en todos los aspectos significativos, la imagen fiel 
+          del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con las Normas Internacionales de Información Financiera adoptadas por la Unión Europea 
+          (NIIF-UE), y demás disposiciones del marco normativo de información financiera aplicable 
+          en España y, en particular, con los principios y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          En nuestra opinión, excepto por los efectos de la(s) cuestión(es) descrita(s) en la 
+          sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas anuales 
+          consolidadas adjuntas expresan, en todos los aspectos significativos, la imagen fiel 
+          del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con el marco normativo de información financiera que resulta de aplicación (que se identifica 
+          en la nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios 
+          y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and tipo_cuentas == 'abreviadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, excepto por los efectos de la(s) cuestión(es) descrita(s) en la 
+          sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas anuales 
+          abreviadas adjuntas expresan, en todos los aspectos significativos, la imagen fiel del 
+          patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          correspondientes al ejercicio terminado en dicha fecha, de conformidad con las Normas 
+          Internacionales de Información Financiera adoptadas por la Unión Europea (NIIF-UE), 
+          y demás disposiciones del marco normativo de información financiera aplicable en España 
+          y, en particular, con los principios y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and tipo_cuentas == 'abreviadas'"
+        plantilla: >
+          En nuestra opinión, excepto por los efectos de la(s) cuestión(es) descrita(s) en la 
+          sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas anuales 
+          abreviadas adjuntas expresan, en todos los aspectos significativos, la imagen fiel del 
+          patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          correspondientes al ejercicio terminado en dicha fecha, de conformidad con el marco 
+          normativo de información financiera que resulta de aplicación (que se identifica en la 
+          nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios y 
+          criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, excepto por los efectos de la(s) cuestión(es) descrita(s) en la 
+          sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas anuales 
+          adjuntas expresan, en todos los aspectos significativos, la imagen fiel del patrimonio 
+          y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} de 
+          {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con las Normas Internacionales de Información Financiera adoptadas por la Unión Europea 
+          (NIIF-UE), y demás disposiciones del marco normativo de información financiera aplicable 
+          en España y, en particular, con los principios y criterios contables contenidos en el mismo.
+
+      - cuando: "tipo_opinion == 'salvedades'"
+        plantilla: >
+          En nuestra opinión, excepto por los efectos de la(s) cuestión(es) descrita(s) en la 
+          sección Fundamento de la opinión con salvedades de nuestro informe, las cuentas anuales 
+          adjuntas expresan, en todos los aspectos significativos, la imagen fiel del patrimonio 
+          y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} de 
+          {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con el marco normativo de información financiera que resulta de aplicación (que se identifica 
+          en la nota {{ numero_nota_marco }} de la memoria) y, en particular, con los principios 
+          y criterios contables contenidos en el mismo.
+
+      # Opinión desfavorable
+      - cuando: "tipo_opinion == 'desfavorable' and tipo_cuentas == 'consolidadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, debido al efecto muy significativo de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión desfavorable de nuestro informe, las cuentas 
+          anuales consolidadas adjuntas no expresan, en todos los aspectos significativos, la 
+          imagen fiel del patrimonio y de la situación financiera de la Entidad a día 
+          {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, 
+          así como de sus resultados y flujos de efectivo correspondientes al ejercicio terminado 
+          en dicha fecha, de conformidad con las Normas Internacionales de Información Financiera 
+          adoptadas por la Unión Europea (NIIF-UE), y demás disposiciones del marco normativo de 
+          información financiera aplicable en España.
+
+      - cuando: "tipo_opinion == 'desfavorable' and tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          En nuestra opinión, debido al efecto muy significativo de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión desfavorable de nuestro informe, las cuentas 
+          anuales consolidadas adjuntas no expresan, en todos los aspectos significativos, la 
+          imagen fiel del patrimonio y de la situación financiera de la Entidad a día 
+          {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, 
+          así como de sus resultados y flujos de efectivo correspondientes al ejercicio terminado 
+          en dicha fecha, de conformidad con el marco normativo de información financiera que 
+          resulta de aplicación (que se identifica en la nota {{ numero_nota_marco }} de la memoria).
+
+      - cuando: "tipo_opinion == 'desfavorable' and tipo_cuentas == 'abreviadas' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, debido al efecto muy significativo de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión desfavorable de nuestro informe, las cuentas 
+          anuales abreviadas adjuntas no expresan, en todos los aspectos significativos, la 
+          imagen fiel del patrimonio y de la situación financiera de la Entidad a día 
+          {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, 
+          así como de sus resultados correspondientes al ejercicio terminado en dicha fecha, 
+          de conformidad con las Normas Internacionales de Información Financiera adoptadas 
+          por la Unión Europea (NIIF-UE), y demás disposiciones del marco normativo de información 
+          financiera aplicable en España.
+
+      - cuando: "tipo_opinion == 'desfavorable' and tipo_cuentas == 'abreviadas'"
+        plantilla: >
+          En nuestra opinión, debido al efecto muy significativo de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión desfavorable de nuestro informe, las cuentas 
+          anuales abreviadas adjuntas no expresan, en todos los aspectos significativos, la 
+          imagen fiel del patrimonio y de la situación financiera de la Entidad a día 
+          {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, 
+          así como de sus resultados correspondientes al ejercicio terminado en dicha fecha, 
+          de conformidad con el marco normativo de información financiera que resulta de aplicación 
+          (que se identifica en la nota {{ numero_nota_marco }} de la memoria).
+
+      - cuando: "tipo_opinion == 'desfavorable' and marco_normativo == 'NIIF-UE'"
+        plantilla: >
+          En nuestra opinión, debido al efecto muy significativo de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión desfavorable de nuestro informe, las cuentas 
+          anuales adjuntas no expresan, en todos los aspectos significativos, la imagen fiel 
+          del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con las Normas Internacionales de Información Financiera adoptadas por la Unión Europea 
+          (NIIF-UE), y demás disposiciones del marco normativo de información financiera aplicable 
+          en España.
+
+      - cuando: "tipo_opinion == 'desfavorable'"
+        plantilla: >
+          En nuestra opinión, debido al efecto muy significativo de la(s) cuestión(es) descrita(s) 
+          en la sección Fundamento de la opinión desfavorable de nuestro informe, las cuentas 
+          anuales adjuntas no expresan, en todos los aspectos significativos, la imagen fiel 
+          del patrimonio y de la situación financiera de la Entidad a día {{ dia_cierre_ejercicio }} 
+          de {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }}, así como de sus resultados 
+          y flujos de efectivo correspondientes al ejercicio terminado en dicha fecha, de conformidad 
+          con el marco normativo de información financiera que resulta de aplicación (que se identifica 
+          en la nota {{ numero_nota_marco }} de la memoria).
+
+      # Denegación de opinión
+      - cuando: "tipo_opinion == 'denegada' and tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          No expresamos una opinión sobre las cuentas anuales consolidadas de la Entidad adjuntas. 
+          Debido al efecto muy significativo de las cuestiones descritas en la sección Fundamento 
+          de la denegación de opinión de nuestro informe, no hemos podido obtener evidencia de 
+          auditoría que proporcione una base suficiente y adecuada para expresar una opinión de 
+          auditoría sobre estas cuentas anuales.
+
+      - cuando: "tipo_opinion == 'denegada' and tipo_cuentas == 'abreviadas'"
+        plantilla: >
+          No expresamos una opinión sobre las cuentas anuales abreviadas de la Entidad adjuntas. 
+          Debido al efecto muy significativo de las cuestiones descritas en la sección Fundamento 
+          de la denegación de opinión de nuestro informe, no hemos podido obtener evidencia de 
+          auditoría que proporcione una base suficiente y adecuada para expresar una opinión de 
+          auditoría sobre estas cuentas anuales.
+
+      - cuando: "tipo_opinion == 'denegada'"
+        plantilla: >
+          No expresamos una opinión sobre las cuentas anuales de la Entidad adjuntas. Debido al 
+          efecto muy significativo de las cuestiones descritas en la sección Fundamento de la 
+          denegación de opinión de nuestro informe, no hemos podido obtener evidencia de auditoría 
+          que proporcione una base suficiente y adecuada para expresar una opinión de auditoría 
+          sobre estas cuentas anuales.
+  # ============================================================================
+  # SECCIÓN: FUNDAMENTO DE LA OPINIÓN
+  # ============================================================================
+
+  - id: titulo_fundamento
+    descripcion: "Título de la sección de fundamento según tipo de opinión"
+    reglas:
+      - cuando: "tipo_opinion == 'desfavorable'"
+        plantilla: "Fundamento de la opinión desfavorable"
+      - cuando: "tipo_opinion == 'denegada'"
+        plantilla: "Fundamento de la opinión denegada"
+      - cuando: "tipo_opinion == 'salvedades'"
+        plantilla: "Fundamento de la opinión con salvedades"
+      - cuando: "True"
+        plantilla: "Fundamento de la opinión"
+
+  - id: parrafo_fundamento_calificacion
+    descripcion: "Párrafo de fundamento específico según el motivo de la calificación"
+    reglas:
+      - cuando: "tipo_opinion == 'salvedades' and motivo_calificacion == 'incorreccion'"
+        plantilla: >
+          Tal como se explica en la nota {{ numero_nota_incorreccion }} de la memoria adjunta, 
+          la Entidad no ha {{ descripcion_incorreccion }}. Si se hubiese [explicación de cómo 
+          se habría corregido la incorrección], muchos elementos de las cuentas anuales adjuntas 
+          se habrían visto afectados de forma material. De acuerdo con los registros de la Entidad, 
+          [cuantificación de los efectos de la incorrección sobre partidas concretas: p.ej., 
+          reducir existencias en X, aumentar coste de ventas en X, etc.]. En consecuencia, 
+          [efecto sobre resultados e impuestos: p.ej., el resultado neto y el patrimonio neto 
+          deberían minorarse en X…].
+
+      - cuando: "tipo_opinion == 'salvedades' and motivo_calificacion == 'limitacion'"
+        plantilla: >
+          Tal como se indica en la nota {{ numero_nota_limitacion }} de la memoria adjunta, 
+          {{ descripcion_limitacion }}. En el transcurso de nuestro trabajo no hemos tenido 
+          acceso a [información o personas necesarias, p. ej., la información financiera, 
+          planes de negocio, la dirección ni a los auditores de XYZ]. En consecuencia, no hemos 
+          podido obtener evidencia de auditoría suficiente y adecuada sobre [la partida afectada, 
+          p. ej., el importe recuperable de la inversión en XYZ a 31 de diciembre de 
+          {{ ano_cierre_ejercicio }}], ni determinar si [efectos potenciales: p. ej., el importe 
+          por el que figura registrada la inversión debe ser ajustado].
+
+      - cuando: "tipo_opinion == 'desfavorable'"
+        plantilla: >
+          Tal como se explica en la nota {{ numero_nota_desfavorable }} de la memoria adjunta, 
+          la Entidad {{ descripcion_desfavorable }}. Si se hubiese [acción correcta que no se tomó], 
+          muchos elementos de las cuentas anuales adjuntas se habrían visto afectados de forma 
+          muy significativa. No se han determinado los efectos sobre las cuentas anuales de 
+          esta omisión.
+
+      - cuando: "tipo_opinion == 'denegada'"
+        plantilla: >
+          Ejemplo ilustrativo 1: Fuimos nombrados auditores de la Entidad con posterioridad al 
+          {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_anterior }} y, 
+          por lo tanto, no presenciamos el recuento físico de las existencias al inicio y al cierre 
+          del ejercicio. No hemos podido satisfacernos, mediante procedimientos alternativos, de las 
+          cantidades de existencias a 31 de diciembre de {{ ano_cierre_anterior }} y {{ ano_cierre_ejercicio }}, 
+          las cuales están registradas en los balances por xx y xx miles de euros, respectivamente. 
+          Asimismo, la introducción en septiembre de {{ ano_cierre_ejercicio }} de un nuevo sistema 
+          informatizado de cuentas a cobrar ocasionó numerosos errores en dichas cuentas. A la fecha 
+          de nuestro informe de auditoría, {{ tipo_administradores }} aún estaban en el proceso de 
+          rectificar las deficiencias del sistema y de corregir los errores. No pudimos confirmar 
+          o verificar por medios alternativos las cuentas a cobrar incluidas en el balance por un 
+          importe total de xxx miles de euros a 31 de diciembre de {{ ano_cierre_ejercicio }}. 
+          Como resultado de estos hechos, no hemos podido determinar los ajustes que podrían haber 
+          sido necesarios en relación con las existencias y las cuentas a cobrar registradas, o no 
+          registradas, ni en relación con los elementos integrantes de la cuenta de pérdidas y 
+          ganancias, del estado de cambios en el patrimonio neto y del estado de flujos de efectivo.
+          
+
+          Ejemplo ilustrativo 2: Tal como se indica en la nota {{ numero_nota_denegada }} de la memoria 
+          adjunta, el día {{ dia_evento_incertidumbre }} de {{ mes_evento_incertidumbre }} de 
+          {{ ano_evento_incertidumbre }} la sociedad dependiente XYZ entró en un procedimiento de 
+          insolvencia que supuso, de facto, la pérdida de control de la Entidad sobre dicha sociedad. 
+          La cuenta de pérdidas y ganancias del ejercicio {{ ano_cierre_ejercicio }} recoge deterioros 
+          de valor por un importe total de xxx miles de euros de pérdida. Asimismo, el balance a 31 
+          de diciembre de {{ ano_cierre_ejercicio }} incluye saldos con dicha sociedad en los epígrafes 
+          "Deudas a corto plazo" y "Acreedores comerciales y otras cuentas a pagar" por importes de 
+          xx y xx miles de euros, respectivamente, así como en "Inversiones financieras a largo plazo" 
+          y "Deudores comerciales y otras cuentas por cobrar" figuran inversiones y créditos cuyo 
+          coste asciende a xx y xx miles de euros, respectivamente, que han sido completamente 
+          deteriorados en el ejercicio. Dado que no nos ha sido posible llevar a cabo ningún 
+          procedimiento de auditoría sobre dichos saldos y transacciones, no hemos podido obtener 
+          evidencia de auditoría suficiente y adecuada sobre los mismos ni sobre posibles efectos 
+          no registrados relativos a las operaciones y saldos de la referida sociedad y su impacto, 
+          de haberlo, sobre las cuentas anuales del ejercicio {{ ano_cierre_ejercicio }} adjuntas.
+
+      - cuando: "True"
+        plantilla: ""
+
+  - id: texto_base_fundamento
+    descripcion: "Texto normativo base sobre conformidad y evidencia"
+    reglas:
+      - cuando: "tipo_opinion == 'desfavorable'"
+        plantilla: >
+          Hemos llevado a cabo nuestra auditoría de conformidad con la normativa reguladora de la 
+          actividad de auditoría de cuentas vigente en España. Nuestras responsabilidades de acuerdo 
+          con dichas normas se describen más adelante en la sección Responsabilidades del auditor 
+          en relación con la auditoría de las cuentas anuales de nuestro informe.
+
+          Somos independientes de la Entidad de conformidad con los requerimientos de ética, incluidos 
+          los de independencia, que son aplicables a nuestra auditoría de las cuentas anuales en España 
+          según lo exigido por la normativa reguladora de la actividad de auditoría de cuentas. En este 
+          sentido, no hemos prestado servicios distintos a los de la auditoría de cuentas ni han 
+          concurrido situaciones o circunstancias que, de acuerdo con lo establecido en la citada 
+          normativa reguladora, hayan afectado a la necesaria independencia de modo que se haya visto 
+          comprometida.
+
+          Consideramos que la evidencia de auditoría que hemos obtenido proporciona una base suficiente 
+          y adecuada para nuestra opinión desfavorable.
+
+      - cuando: "tipo_opinion == 'salvedades'"
+        plantilla: >
+          Hemos llevado a cabo nuestra auditoría de conformidad con la normativa reguladora de la 
+          actividad de auditoría de cuentas vigente en España. Nuestras responsabilidades de acuerdo 
+          con dichas normas se describen más adelante en la sección Responsabilidades del auditor 
+          en relación con la auditoría de las cuentas anuales de nuestro informe.
+
+          Somos independientes de la Entidad de conformidad con los requerimientos de ética, incluidos 
+          los de independencia, que son aplicables a nuestra auditoría de las cuentas anuales en España 
+          según lo exigido por la normativa reguladora de la actividad de auditoría de cuentas. En este 
+          sentido, no hemos prestado servicios distintos a los de la auditoría de cuentas ni han 
+          concurrido situaciones o circunstancias que, de acuerdo con lo establecido en la citada 
+          normativa reguladora, hayan afectado a la necesaria independencia de modo que se haya visto 
+          comprometida.
+
+          Consideramos que la evidencia de auditoría que hemos obtenido proporciona una base suficiente 
+          y adecuada para nuestra opinión con salvedades.
+
+      - cuando: "tipo_opinion == 'denegada'"
+        plantilla: >
+          Hemos llevado a cabo nuestra auditoría de conformidad con la normativa reguladora de la 
+          actividad de auditoría de cuentas vigente en España. Nuestras responsabilidades de acuerdo 
+          con dichas normas se describen más adelante en la sección Responsabilidades del auditor 
+          en relación con la auditoría de las cuentas anuales de nuestro informe.
+
+          Somos independientes de la Entidad de conformidad con los requerimientos de ética, incluidos 
+          los de independencia, que son aplicables a nuestra auditoría de las cuentas anuales en España 
+          según lo exigido por la normativa reguladora de la actividad de auditoría de cuentas. En este 
+          sentido, no hemos prestado servicios distintos a los de la auditoría de cuentas ni han 
+          concurrido situaciones o circunstancias que, de acuerdo con lo establecido en la citada 
+          normativa reguladora, hayan afectado a la necesaria independencia de modo que se haya visto 
+          comprometida.
+
+          Consideramos que la evidencia de auditoría que hemos obtenido proporciona una base suficiente 
+          y adecuada para nuestra opinión (denegada).
+
+      - cuando: "True"
+        plantilla: >
+          Hemos llevado a cabo nuestra auditoría de conformidad con la normativa reguladora de la 
+          actividad de auditoría de cuentas vigente en España. Nuestras responsabilidades de acuerdo 
+          con dichas normas se describen más adelante en la sección Responsabilidades del auditor 
+          en relación con la auditoría de las cuentas anuales de nuestro informe.
+
+          Somos independientes de la Entidad de conformidad con los requerimientos de ética, incluidos 
+          los de independencia, que son aplicables a nuestra auditoría de las cuentas anuales en España 
+          según lo exigido por la normativa reguladora de la actividad de auditoría de cuentas. En este 
+          sentido, no hemos prestado servicios distintos a los de la auditoría de cuentas ni han 
+          concurrido situaciones o circunstancias que, de acuerdo con lo establecido en la citada 
+          normativa reguladora, hayan afectado a la necesaria independencia de modo que se haya visto 
+          comprometida.
+
+          Consideramos que la evidencia de auditoría que hemos obtenido proporciona una base suficiente 
+          y adecuada para nuestra opinión.
+
+  # ============================================================================
+  # SECCIÓN: INCERTIDUMBRE Y ÉNFASIS
+  # ============================================================================
+
+  - id: seccion_incertidumbre_funcionamiento
+    descripcion: "Sección de incertidumbre material sobre empresa en funcionamiento"
+    reglas:
+      - cuando: "incertidumbre_funcionamiento == 'si' and tipo_opinion == 'favorable'"
+        plantilla: >
+          Incertidumbre material relacionada con la empresa en funcionamiento
+
+          Llamamos la atención sobre la nota {{ numero_nota_funcionamiento }} de las cuentas anuales 
+          adjuntas, que indica que la Entidad ha incurrido en pérdidas netas de {{ monto_perdidas }} 
+          miles de euros durante el ejercicio terminado el día {{ dia_cierre_ejercicio }} de 
+          {{ mes_cierre_ejercicio }} de {{ ano_cierre_ejercicio }} y que, a esa fecha, el pasivo 
+          corriente de la Entidad excedía a su activo corriente en {{ monto_exceso_pasivo }} miles 
+          de euros. Como se menciona en la nota {{ numero_nota_funcionamiento }}, estos hechos o 
+          condiciones, junto con otras cuestiones expuestas en dicha nota, indican la existencia de 
+          una incertidumbre material que puede generar dudas significativas sobre la capacidad de 
+          la Entidad para continuar como empresa en funcionamiento. Nuestra opinión no ha sido 
+          modificada en relación con esta cuestión.
+      - cuando: "True"
+        plantilla: ""
+
+  - id: seccion_enfasis
+    descripcion: "Párrafo de énfasis adicional"
+    reglas:
+      - cuando: "enfasis_adicional == 'si'"
+        plantilla: >
+          Párrafo de énfasis
+
+          Llamamos la atención sobre la nota {{ numero_nota_enfasis }} de las cuentas anuales adjuntas, 
+          que describe {{ descripcion_enfasis }}. Nuestra opinión no ha sido modificada en relación 
+          con esta cuestión.
+      - cuando: "True"
+        plantilla: ""
+
+  # ============================================================================
+  # SECCIÓN: KAM / AMRA
+  # ============================================================================
+
+  - id: seccion_kam_amra
+    descripcion: "Sección completa de Cuestiones Clave / Aspectos Más Relevantes de la Auditoría"
+    reglas:
+      # EIP con opinión favorable
+      - cuando: "tipo_entidad == 'EIP' and tipo_opinion == 'favorable' and incertidumbre_funcionamiento == 'no' and otros_kam == 'no'"
+        plantilla: >
+          Cuestiones clave de la auditoría
+
+          Las cuestiones clave de la auditoría son aquellas cuestiones que, según nuestro juicio 
+          profesional, han sido de la mayor significatividad en nuestra auditoría de las {{ nombre_tipo_cuentas }} 
+          del periodo actual. Estas cuestiones han sido tratadas en el contexto de nuestra auditoría 
+          de las cuentas anuales en su conjunto, y en la formación de nuestra opinión sobre éstas, 
+          y no expresamos una opinión por separado sobre esas cuestiones.
+
+          Hemos determinado que no existen cuestiones clave de la auditoría que se deban comunicar 
+          en nuestro informe.
+
+      - cuando: "tipo_entidad == 'EIP' and tipo_opinion == 'favorable' and incertidumbre_funcionamiento == 'si' and otros_kam == 'no'"
+        plantilla: >
+          Cuestiones clave de la auditoría
+
+          Las cuestiones clave de la auditoría son aquellas cuestiones que, según nuestro juicio 
+          profesional, han sido de la mayor significatividad en nuestra auditoría de las {{ nombre_tipo_cuentas }} 
+          del periodo actual. Estas cuestiones han sido tratadas en el contexto de nuestra auditoría 
+          de las cuentas anuales en su conjunto, y en la formación de nuestra opinión sobre éstas, 
+          y no expresamos una opinión por separado sobre esas cuestiones.
+
+          Excepto por la cuestión descrita en la sección Incertidumbre material relacionada con la 
+          empresa en funcionamiento, hemos determinado que no existen otras cuestiones clave 
+          consideradas en la auditoría que se deban comunicar en nuestro informe.
+
+      - cuando: "tipo_entidad == 'EIP' and tipo_opinion == 'favorable' and otros_kam == 'si'"
+        plantilla: >
+          Cuestiones clave de la auditoría
+
+          Las cuestiones clave de la auditoría son aquellas cuestiones que, según nuestro juicio 
+          profesional, han sido de la mayor significatividad en nuestra auditoría de las {{ nombre_tipo_cuentas }} 
+          del periodo actual. Estas cuestiones han sido tratadas en el contexto de nuestra auditoría 
+          de las cuentas anuales en su conjunto, y en la formación de nuestra opinión sobre éstas, 
+          y no expresamos una opinión por separado sobre esas cuestiones.
+
+          {{ texto_intro_kam }}
+
+          Título de la Cuestión Clave de la Auditoría
+
+          Tal como se indica en la nota {{ numero_nota_kam }} de la memoria{{ sufijo_consolidada }} adjunta, 
+          {{ descripcion_kam_amra }}. Por todo lo indicado anteriormente, esta cuestión se ha considerado 
+          clave en nuestra auditoría.
+
+          Nuestros procedimientos de auditoría han incluido, entre otros, {{ procedimientos_auditoria_kam }}.
+
+          (Si existen varias cuestiones clave de la auditoría, repetir la estructura anterior para cada CCA.)
+
+      # EIP con opinión no favorable
+      - cuando: "tipo_entidad == 'EIP' and tipo_opinion != 'favorable' and otros_kam == 'no'"
+        plantilla: >
+          Cuestiones clave de la auditoría
+
+          Las cuestiones clave de la auditoría son aquellas cuestiones que, según nuestro juicio 
+          profesional, han sido de la mayor significatividad en nuestra auditoría de las {{ nombre_tipo_cuentas }} 
+          del periodo actual. Estas cuestiones han sido tratadas en el contexto de nuestra auditoría 
+          de las cuentas anuales en su conjunto, y en la formación de nuestra opinión sobre éstas, 
+          y no expresamos una opinión por separado sobre esas cuestiones.
+
+          Excepto por la(s) cuestión(es) descrita(s) en la sección Fundamento de la {{ nombre_fundamento }}, 
+          hemos determinado que no existen otras cuestiones clave de la auditoría que se deban comunicar 
+          en nuestro informe.
+
+      - cuando: "tipo_entidad == 'EIP' and tipo_opinion != 'favorable' and otros_kam == 'si'"
+        plantilla: >
+          Cuestiones clave de la auditoría
+
+          Las cuestiones clave de la auditoría son aquellas cuestiones que, según nuestro juicio 
+          profesional, han sido de la mayor significatividad en nuestra auditoría de las {{ nombre_tipo_cuentas }} 
+          del periodo actual. Estas cuestiones han sido tratadas en el contexto de nuestra auditoría 
+          de las cuentas anuales en su conjunto, y en la formación de nuestra opinión sobre éstas, 
+          y no expresamos una opinión por separado sobre esas cuestiones.
+
+          Además de la(s) cuestión(es) descrita(s) en la sección Fundamento de la {{ nombre_fundamento }}, 
+          hemos determinado que las siguientes son las cuestiones clave de la auditoría que se deben 
+          comunicar en nuestro informe.
+
+          Título de la Cuestión Clave de la Auditoría
+
+          Tal como se indica en la nota {{ numero_nota_kam }} de la memoria{{ sufijo_consolidada }} adjunta, 
+          {{ descripcion_kam_amra }}. Por todo lo indicado anteriormente, esta cuestión se ha considerado 
+          clave en nuestra auditoría.
+
+          Nuestros procedimientos de auditoría han incluido, entre otros, {{ procedimientos_auditoria_kam }}.
+
+          (Si existen varias cuestiones clave de la auditoría, repetir la estructura anterior para cada CCA.)
+
+      # No EIP con AMRA voluntario
+      - cuando: "tipo_entidad != 'EIP' and amra_voluntario == 'si' and tipo_opinion == 'favorable' and incertidumbre_funcionamiento == 'no' and otros_amra == 'no'"
+        plantilla: >
+          Aspectos más relevantes de la auditoría
+
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que, 
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de 
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto 
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión 
+          sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+          Hemos determinado que no existen aspectos más relevantes de la auditoría que se deban comunicar 
+          en nuestro informe.
+
+      - cuando: "tipo_entidad != 'EIP' and amra_voluntario == 'si' and otros_amra == 'si'"
+        plantilla: >
+          Aspectos más relevantes de la auditoría
+
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que, 
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de 
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto 
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión 
+          sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+          {{ texto_intro_amra }}
+
+          Título del Aspecto más relevante de la auditoría
+
+          Tal como se indica en la nota {{ numero_nota_kam }} de la memoria{{ sufijo_consolidada }} adjunta, 
+          {{ descripcion_kam_amra }}. Por ello, consideramos este aspecto como relevante en nuestra auditoría.
+
+          Nuestros procedimientos de auditoría han incluido, entre otros, {{ procedimientos_auditoria_kam }}.
+
+          (Si existen varios aspectos más relevantes, repetir la estructura anterior para cada AMRA.)
+
+      - cuando: "True"
+        plantilla: ""
+  # ============================================================================
+  # SECCIÓN: OTRAS CUESTIONES
+  # ============================================================================
+
+  - id: seccion_otras_cuestiones
+    descripcion: "Sección de otras cuestiones (auditor anterior, cuentas no auditadas, etc.)"
+    reglas:
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and otras_cuestiones == 'si' and texto_cuestiones == 'informe otro auditor'"
+        plantilla: >
+          Otras cuestiones
+
+          Las cuentas anuales{{ sufijo_abreviadas }} de {{ nombre_entidad }}, correspondientes al ejercicio 
+          terminado a {{ dia_cierre_ejercicio }} de {{ mes_cierre_ejercicio }} de {{ ano_cierre_anterior }} 
+          fueron auditadas por otro auditor que expresó una opinión favorable sobre dichas cuentas anuales 
+          el {{ dia_informe_auditoria_ejercicioanterior }} de {{ mes_informe_auditoria_ejercicioanterior }} 
+          de {{ ano_informe_auditoria_ejercicioanterior }}.
+
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and otras_cuestiones == 'si' and texto_cuestiones == 'cuentas anuales no auditadas'"
+        plantilla: >
+          Otras cuestiones
+
+          Las cuentas anuales{{ sufijo_abreviadas }} correspondientes al ejercicio {{ ano_cierre_anterior }} 
+          no fueron auditadas por no estar las mismas sujetas a auditoría obligatoria.
+
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and otras_cuestiones == 'si' and texto_cuestiones == 'otros'"
+        plantilla: >
+          Otras cuestiones
+
+          [Texto libre a completar por el auditor]
+
+      - cuando: "True"
+        plantilla: ""
+
+  # ============================================================================
+  # SECCIÓN: OTRA INFORMACIÓN (INFORME DE GESTIÓN)
+  # ============================================================================
+
+  - id: seccion_otra_informacion
+    descripcion: "Sección sobre otra información - informe de gestión"
+    reglas:
+      # Denegación de opinión
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and tipo_opinion == 'denegada' and obligacion_EINF == 'no'"
+        plantilla: >
+          Otra información: Informe de gestión{{ sufijo_consolidado_eip }}
+
+          La otra información comprende exclusivamente el informe de gestión{{ sufijo_consolidado_eip }} del ejercicio 
+          {{ ano_cierre_ejercicio }}, cuya formulación es responsabilidad de {{ tipo_administradores }} 
+          {{ sufijo_sociedad_dominante }} y no forma parte integrante de las cuentas anuales{{ sufijo_tipo_cuentas }}.
+
+          Nuestra responsabilidad sobre el informe de gestión viene exigida por la normativa reguladora de 
+          la actividad de auditoría de cuentas. Sin embargo, debido al efecto muy significativo de las 
+          cuestiones descritas en la sección Fundamento de la denegación de opinión, no nos es posible 
+          concluir sobre el informe de gestión en los términos previstos en la citada normativa.
+
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and tipo_opinion == 'denegada' and obligacion_EINF == 'si'"
+        plantilla: >
+          Otra información: Informe de gestión{{ sufijo_consolidado_eip }}
+
+          La otra información comprende exclusivamente el informe de gestión{{ sufijo_consolidado_eip }} del ejercicio 
+          {{ ano_cierre_ejercicio }}, cuya formulación es responsabilidad de {{ tipo_administradores }} 
+          {{ sufijo_sociedad_dominante }} y no forma parte integrante de las cuentas anuales{{ sufijo_tipo_cuentas }}.
+
+          Nuestra responsabilidad sobre el informe de gestión viene exigida por la normativa reguladora de 
+          la actividad de auditoría de cuentas. Sin embargo, debido al efecto muy significativo de las 
+          cuestiones descritas en la sección Fundamento de la denegación de opinión, no nos es posible 
+          concluir sobre el informe de gestión en los términos previstos en la citada normativa.
+
+          (Si la Entidad está obligada a EINF, adaptar la redacción de esta sección de acuerdo con los 
+          modelos aplicables.)
+
+      # Opinión no denegada, sin EINF
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and tipo_opinion != 'denegada' and obligacion_EINF == 'no' and tipo_opinion == 'favorable'"
+        plantilla: >
+          Otra información: Informe de gestión{{ sufijo_consolidado_eip }}
+
+          La otra información comprende exclusivamente el informe de gestión{{ sufijo_consolidado_eip }} del ejercicio 
+          {{ ano_cierre_ejercicio }}, cuya formulación es responsabilidad de {{ tipo_administradores }} 
+          {{ sufijo_sociedad_dominante }} y no forma parte integrante de las cuentas anuales{{ sufijo_tipo_cuentas }}.
+
+          Nuestra opinión de auditoría sobre las cuentas anuales no cubre el informe de gestión. Nuestra 
+          responsabilidad sobre el informe de gestión, de conformidad con lo exigido por la normativa 
+          reguladora de la actividad de auditoría de cuentas, consiste en:
+
+          a) Comprobar únicamente que el estado de información no financiera {{ sufijo_einf_consolidado }}
+          {{ texto_cotizada_iagc }} se ha facilitado en la forma prevista en la normativa aplicable y, 
+          en caso contrario, a informar sobre ello.
+
+          b) Evaluar e informar sobre la concordancia del resto de la información incluida en el informe 
+          de gestión {{ sufijo_consolidado_simple }} con las cuentas anuales{{ sufijo_tipo_cuentas_simple }}, 
+          a partir del conocimiento {{ texto_conocimiento_entidad }} obtenido en la realización de la 
+          auditoría de las citadas cuentas, así como evaluar e informar de si el contenido y presentación 
+          {{ sufijo_parte_consolidado }} del informe de gestión {{ sufijo_consolidado_simple }} son conformes 
+          a la normativa que resulta de aplicación. Si, basándonos en el trabajo que hemos realizado, 
+          concluimos que existen incorrecciones materiales, estamos obligados a informar de ello.
+
+          Sobre la base del trabajo realizado, según lo descrito en el párrafo anterior, no tenemos nada 
+          que informar respecto al informe de gestión.
+
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and tipo_opinion != 'denegada' and obligacion_EINF == 'no' and tipo_opinion != 'favorable' and limitacion_alcance != 'si'"
+        plantilla: >
+          Otra información: Informe de gestión{{ sufijo_consolidado_eip }}
+
+          La otra información comprende exclusivamente el informe de gestión{{ sufijo_consolidado_eip }} del ejercicio 
+          {{ ano_cierre_ejercicio }}, cuya formulación es responsabilidad de {{ tipo_administradores }} 
+          {{ sufijo_sociedad_dominante }} y no forma parte integrante de las cuentas anuales{{ sufijo_tipo_cuentas }}.
+
+          Nuestra opinión de auditoría sobre las cuentas anuales no cubre el informe de gestión. Nuestra 
+          responsabilidad sobre el informe de gestión, de conformidad con lo exigido por la normativa 
+          reguladora de la actividad de auditoría de cuentas, consiste en:
+
+          a) Comprobar únicamente que el estado de información no financiera {{ sufijo_einf_consolidado }}
+          {{ texto_cotizada_iagc }} se ha facilitado en la forma prevista en la normativa aplicable y, 
+          en caso contrario, a informar sobre ello.
+
+          b) Evaluar e informar sobre la concordancia del resto de la información incluida en el informe 
+          de gestión {{ sufijo_consolidado_simple }} con las cuentas anuales{{ sufijo_tipo_cuentas_simple }}, 
+          a partir del conocimiento {{ texto_conocimiento_entidad }} obtenido en la realización de la 
+          auditoría de las citadas cuentas, así como evaluar e informar de si el contenido y presentación 
+          {{ sufijo_parte_consolidado }} del informe de gestión {{ sufijo_consolidado_simple }} son conformes 
+          a la normativa que resulta de aplicación. Si, basándonos en el trabajo que hemos realizado, 
+          concluimos que existen incorrecciones materiales, estamos obligados a informar de ello.
+
+          Sobre la base del trabajo realizado, según lo descrito en el párrafo anterior, salvo por las 
+          incorrección(es) material(es) indicadas, la información que contiene el informe de gestión 
+          concuerda con la de las cuentas anuales del ejercicio {{ ano_cierre_ejercicio }} y su contenido 
+          y presentación son conformes a la normativa que resulta de aplicación.
+
+          Como se describe en la sección Fundamento de la opinión {{ nombre_tipo_opinion_fundamento }}, 
+          existen incorrección(es) material(es) en las cuentas anuales adjuntas. Hemos concluido que 
+          dichas circunstancias afectan de igual manera y en la misma medida al informe de gestión.
+
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and tipo_opinion != 'denegada' and obligacion_EINF == 'no' and tipo_opinion != 'favorable' and limitacion_alcance == 'si'"
+        plantilla: >
+          Otra información: Informe de gestión{{ sufijo_consolidado_eip }}
+
+          La otra información comprende exclusivamente el informe de gestión{{ sufijo_consolidado_eip }} del ejercicio 
+          {{ ano_cierre_ejercicio }}, cuya formulación es responsabilidad de {{ tipo_administradores }} 
+          {{ sufijo_sociedad_dominante }} y no forma parte integrante de las cuentas anuales{{ sufijo_tipo_cuentas }}.
+
+          Nuestra opinión de auditoría sobre las cuentas anuales no cubre el informe de gestión. Nuestra 
+          responsabilidad sobre el informe de gestión, de conformidad con lo exigido por la normativa 
+          reguladora de la actividad de auditoría de cuentas, consiste en:
+
+          a) Comprobar únicamente que el estado de información no financiera {{ sufijo_einf_consolidado }}
+          {{ texto_cotizada_iagc }} se ha facilitado en la forma prevista en la normativa aplicable y, 
+          en caso contrario, a informar sobre ello.
+
+          b) Evaluar e informar sobre la concordancia del resto de la información incluida en el informe 
+          de gestión {{ sufijo_consolidado_simple }} con las cuentas anuales{{ sufijo_tipo_cuentas_simple }}, 
+          a partir del conocimiento {{ texto_conocimiento_entidad }} obtenido en la realización de la 
+          auditoría de las citadas cuentas, así como evaluar e informar de si el contenido y presentación 
+          {{ sufijo_parte_consolidado }} del informe de gestión {{ sufijo_consolidado_simple }} son conformes 
+          a la normativa que resulta de aplicación. Si, basándonos en el trabajo que hemos realizado, 
+          concluimos que existen incorrecciones materiales, estamos obligados a informar de ello.
+
+          Como se describe en la sección Fundamento de la opinión con salvedades, no hemos podido obtener 
+          evidencia de auditoría suficiente y adecuada sobre la(s) cuestión(es) indicada(s) en dicha sección, 
+          lo que supone una/varias limitación(es) al alcance de nuestro trabajo. En consecuencia, no hemos 
+          podido alcanzar una conclusión sobre si la información que contiene el informe de gestión 
+          concuerda con la de las cuentas anuales ni sobre si su contenido y presentación son conformes 
+          a la normativa aplicable.
+
+      # Opinión no denegada, con EINF
+      - cuando: "(tipo_entidad == 'EIP' or obligacion_presentar_informe_gestion == 'si') and tipo_opinion != 'denegada' and obligacion_EINF == 'si' and entidad_cotizada != 'si'"
+        plantilla: >
+          Otra información: Informe de gestión{{ sufijo_consolidado_eip }}
+
+          La otra información comprende exclusivamente el informe de gestión{{ sufijo_consolidado_eip }} del ejercicio 
+          {{ ano_cierre_ejercicio }}, cuya formulación es responsabilidad de {{ tipo_administradores }} 
+          {{ sufijo_sociedad_dominante }} y no forma parte integrante de las cuentas anuales{{ sufijo_tipo_cuentas }}.
+
+          Nuestra opinión de auditoría sobre las cuentas anuales no cubre el informe de gestión. Nuestra 
+          responsabilidad sobre el informe de gestión, de conformidad con lo exigido por la normativa 
+          reguladora de la actividad de auditoría de cuentas, consiste en:
+
+          a) Comprobar únicamente que el estado de información no financiera {{ sufijo_einf_consolidado }}
+          {{ texto_cotizada_iagc }} se ha facilitado en la forma prevista en la normativa aplicable y, 
+          en caso contrario, a informar sobre ello.
+
+          b) Evaluar e informar sobre la concordancia del resto de la información incluida en el informe 
+          de gestión {{ sufijo_consolidado_simple }} con las cuentas anuales{{ sufijo_tipo_cuentas_simple }}, 
+          a partir del conocimiento {{ texto_conocimiento_entidad }} obtenido en la realización de la 
+          auditoría de las citadas cuentas, así como evaluar e informar de si el contenido y presentación 
+          {{ sufijo_parte_consolidado }} del informe de gestión {{ sufijo_consolidado_simple }} son conformes 
+          a la normativa que resulta de aplicación. Si, basándonos en el trabajo que hemos realizado, 
+          concluimos que existen incorrecciones materiales, estamos obligados a informar de ello.
+
+          Sobre la base del trabajo realizado, según lo descrito anteriormente, hemos comprobado que la 
+          información mencionada en el apartado a) anterior {{ texto_einf_facilitado }} en la forma prevista 
+          en la normativa aplicable{{ texto_opinion_gestion_einf }}.
+
+          {{ texto_fundamento_einf }}
+
+      - cuando: "True"
+        plantilla: ""
+
+  # ============================================================================
+  # SECCIÓN: PROPUESTA APLICACIÓN RESULTADO (ABREVIADAS)
+  # ============================================================================
+
+  - id: seccion_par_abreviadas
+    descripcion: "Sección sobre Propuesta de Aplicación del Resultado para cuentas abreviadas"
+    reglas:
+      - cuando: "tipo_cuentas == 'abreviadas' and incluir_PAR_section == 'si'"
+        plantilla: >
+          Otra información: Propuesta de aplicación del resultado
+
+          La otra información comprende exclusivamente la Propuesta de aplicación del resultado del ejercicio 
+          {{ ano_cierre_ejercicio }}, cuya formulación es responsabilidad de {{ tipo_administradores }} de 
+          la Entidad y no forma parte integrante de las cuentas anuales abreviadas.
+
+          Nuestra opinión de auditoría sobre las cuentas anuales abreviadas no cubre la Propuesta de 
+          aplicación del resultado. Nuestra responsabilidad sobre la misma, de conformidad con lo exigido 
+          por la normativa reguladora de la actividad de auditoría de cuentas, consiste en evaluar e 
+          informar sobre su concordancia con las cuentas anuales, a partir del conocimiento de la entidad 
+          obtenido en la realización de la auditoría de las citadas cuentas. Si, basándonos en el trabajo 
+          que hemos realizado, concluimos que existen incorrecciones materiales, estamos obligados a 
+          informar de ello.
+
+          Sobre la base del trabajo realizado, según lo descrito en el párrafo anterior, no tenemos nada 
+          que informar respecto a la Propuesta de aplicación del resultado.
+
+      - cuando: "True"
+        plantilla: ""
+
+  # ============================================================================
+  # SECCIÓN: RESPONSABILIDAD DE LOS ADMINISTRADORES
+  # ============================================================================
+
+  - id: titulo_responsabilidad_administradores
+    descripcion: "Título de la sección de responsabilidad de administradores"
+    reglas:
+      - cuando: "tipo_entidad == 'EIP' and entidad_cotizada == 'si' and tipo_cuentas == 'consolidadas'"
+        plantilla: "Responsabilidad de {{ tipo_administradores }} y de la comisión de auditoría de la Sociedad dominante en relación con las cuentas anuales consolidadas"
+      - cuando: "tipo_entidad == 'EIP' and tipo_cuentas == 'consolidadas'"
+        plantilla: "Responsabilidad de {{ tipo_administradores }} y de la comisión de auditoría en relación con las cuentas anuales consolidadas"
+      - cuando: "tipo_entidad == 'EIP' and tipo_cuentas == 'abreviadas'"
+        plantilla: "Responsabilidad de {{ tipo_administradores }} y de la comisión de auditoría en relación con las cuentas anuales abreviadas"
+      - cuando: "tipo_entidad == 'EIP'"
+        plantilla: "Responsabilidad de {{ tipo_administradores }} y de la comisión de auditoría en relación con las cuentas anuales"
+      - cuando: "tipo_cuentas == 'consolidadas'"
+        plantilla: "Responsabilidad de {{ tipo_administradores }} en relación con las cuentas anuales consolidadas"
+      - cuando: "tipo_cuentas == 'abreviadas'"
+        plantilla: "Responsabilidad de {{ tipo_administradores }} en relación con las cuentas anuales abreviadas"
+      - cuando: "True"
+        plantilla: "Responsabilidad de {{ tipo_administradores }} en relación con las cuentas anuales"
+
+  - id: texto_responsabilidad_administradores
+    descripcion: "Texto de responsabilidad de administradores"
+    reglas:
+      - cuando: "tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          {{ tipo_administradores }} de la Sociedad dominante son responsables de formular las cuentas 
+          anuales consolidadas adjuntas, de forma que expresen la imagen fiel del patrimonio, de la 
+          situación financiera consolidada y de los resultados consolidados del Grupo, de conformidad 
+          con el marco normativo de información financiera aplicable al Grupo en España, y del control 
+          interno que consideren necesario para permitir la preparación de cuentas anuales consolidadas 
+          libres de incorrección material, debida a fraude o error.
+
+          En la preparación de las cuentas anuales consolidadas, {{ tipo_administradores }} de la Sociedad 
+          dominante son responsables de la valoración de la capacidad del Grupo para continuar como empresa 
+          en funcionamiento, revelando, según corresponda, las cuestiones relacionadas con empresa en 
+          funcionamiento y utilizando el principio contable de empresa en funcionamiento excepto si los 
+          citados administradores tienen intención de liquidar el Grupo o de cesar sus operaciones, o bien 
+          no exista otra alternativa realista.
+
+      - cuando: "True"
+        plantilla: >
+          {{ tipo_administradores }} son responsables de formular las cuentas anuales{{ sufijo_abreviadas }} 
+          adjuntas, de forma que expresen la imagen fiel del patrimonio, de la situación financiera y de 
+          los resultados de la Entidad, de conformidad con el marco normativo de información financiera 
+          aplicable a la Entidad en España, y del control interno que consideren necesario para permitir 
+          la preparación de cuentas anuales libres de incorrección material, debida a fraude o error.
+
+          En la preparación de las cuentas anuales, {{ tipo_administradores }} son responsables de la 
+          valoración de la capacidad de la Entidad para continuar como empresa en funcionamiento, revelando, 
+          según corresponda, las cuestiones relacionadas con empresa en funcionamiento y utilizando el 
+          principio contable de empresa en funcionamiento excepto si los administradores tienen intención 
+          de liquidar la Entidad o de cesar sus operaciones, o bien no exista otra alternativa realista.
+
+  - id: texto_comision_auditoria
+    descripcion: "Texto sobre la comisión de auditoría (solo EIP)"
+    reglas:
+      - cuando: "tipo_entidad == 'EIP' and tipo_cuentas == 'consolidadas'"
+        plantilla: >
+          La comisión de auditoría de la Sociedad dominante es responsable de la supervisión del proceso 
+          de elaboración y presentación de las cuentas anuales consolidadas.
+      - cuando: "tipo_entidad == 'EIP'"
+        plantilla: >
+          La comisión de auditoría es responsable de la supervisión del proceso de elaboración y 
+          presentación de las cuentas anuales.
+      - cuando: "True"
+        plantilla: ""
+
+  - id: texto_comunicacion_kam_eip
+    descripcion: "Texto sobre comunicación de KAM para EIP"
+    reglas:
+      - cuando: "tipo_entidad == 'EIP'"
+        plantilla: >
+          * Proporcionamos a {{ tipo_administradores }} de la Entidad una declaración de que hemos cumplido 
+          los requerimientos de ética aplicables, incluidos los de independencia, y les hemos comunicado 
+          aquellas cuestiones de las que razonablemente pueda pensarse que pueden afectar a nuestra 
+          independencia, y en su caso, las correspondientes salvaguardas.
+
+          * Entre los riesgos significativos que han sido objeto de comunicación a {{ tipo_administradores }} 
+          de la Entidad, determinamos aquellos que han sido de la mayor significatividad en la auditoría 
+          de las cuentas anuales del periodo actual y que son, en consecuencia, los riesgos considerados 
+          más significativos. Describimos esos riesgos en nuestro informe de auditoría salvo que las 
+          disposiciones legales o reglamentarias prohíban revelar públicamente la cuestión.
+      - cuando: "True"
+        plantilla: ""
+  # ============================================================================
+  # SECCIÓN: INFORME SOBRE OTROS REQUERIMIENTOS (EIP)
+  # ============================================================================
+
+  - id: seccion_eip_completa
+    descripcion: "Sección completa de requerimientos adicionales para EIP"
+    reglas:
+      - cuando: "tipo_entidad == 'EIP' and entidad_cotizada == 'si'"
+        plantilla: >
+          Informe sobre otros requerimientos legales y reglamentarios
+
+          Formato electrónico único europeo
+
+          Hemos examinado el archivo digital del formato electrónico único europeo (FEUE) de 
+          {{ nombre_entidad }} correspondiente al ejercicio {{ ano_cierre_ejercicio }}, que comprende 
+          un archivo XHTML con las cuentas anuales del ejercicio, el cual formará parte del informe 
+          financiero anual.
+
+          {{ tipo_administradores }} de {{ nombre_entidad }} son responsables de presentar el informe 
+          financiero anual del ejercicio {{ ano_cierre_ejercicio }} de conformidad con los requerimientos 
+          de formato establecidos en el Reglamento Delegado (UE) 2019/815, de 17 de diciembre de 2018, 
+          de la Comisión Europea (en adelante, Reglamento FEUE). A este respecto, el Informe Anual de 
+          Gobierno Corporativo y el Informe Anual de Remuneraciones de los Consejeros han sido 
+          incorporados por referencia en el informe de gestión.
+
+          Nuestra responsabilidad consiste en examinar el archivo digital preparado por {{ tipo_administradores }} 
+          de la entidad, de conformidad con la normativa reguladora de la actividad de auditoría de cuentas 
+          en vigor en España. Dicha normativa exige que planifiquemos y ejecutemos nuestros procedimientos 
+          de auditoría con el fin de comprobar si el contenido de las cuentas anuales incluidas en dicho 
+          fichero se corresponde íntegramente con el de las cuentas anuales que hemos auditado, y si el 
+          formato de las mismas se ha realizado, en todos los aspectos significativos, de conformidad con 
+          los requerimientos establecidos en el Reglamento FEUE.
+
+          En nuestra opinión, el archivo digital examinado se corresponde íntegramente con las cuentas 
+          anuales auditadas, y éstas se presentan, en todos sus aspectos significativos, de conformidad 
+          con los requerimientos establecidos en el Reglamento FEUE.
+
+          Informe adicional para la comisión de auditoría
+
+          La opinión expresada en este informe es coherente con lo manifestado en nuestro informe adicional 
+          para la comisión de auditoría de la Entidad de fecha {{ dia_informe_adicional }} de 
+          {{ mes_informe_adicional }} de {{ ano_informe_adicional }}.
+
+          Periodo de contratación
+
+          La Junta General {{ tipo_junta_nombramiento }} celebrada el día {{ dia_nombramiento }} de 
+          {{ mes_nombramiento }} de {{ ano_nombramiento }} nos nombró como auditores por un período de 
+          {{ periodo_auditoria }} años, contados a partir del ejercicio finalizado el día {{ dia_inicio_periodo }} 
+          de {{ mes_inicio_periodo }} de {{ ano_inicio_periodo }}.
+
+          Con anterioridad, {{ texto_auditor_continuidad }} por acuerdo(s) de la Junta General de Accionistas 
+          para el periodo de {{ periodo_anterior }} años y hemos venido realizando el trabajo de auditoría 
+          de cuentas de forma ininterrumpida desde el ejercicio finalizado el día {{ dia_inicio_auditoria_anterior }} 
+          de {{ mes_inicio_auditoria_anterior }} de {{ ano_inicio_auditoria_anterior }}.
+
+          Servicios prestados
+
+          {{ texto_servicios_adicionales }}
+
+      - cuando: "tipo_entidad == 'EIP'"
+        plantilla: >
+          Informe sobre otros requerimientos legales y reglamentarios
+
+          Informe adicional para la comisión de auditoría
+
+          La opinión expresada en este informe es coherente con lo manifestado en nuestro informe adicional 
+          para la comisión de auditoría de la Entidad de fecha {{ dia_informe_adicional }} de 
+          {{ mes_informe_adicional }} de {{ ano_informe_adicional }}.
+
+          Periodo de contratación
+
+          La Junta General {{ tipo_junta_nombramiento }} celebrada el día {{ dia_nombramiento }} de 
+          {{ mes_nombramiento }} de {{ ano_nombramiento }} nos nombró como auditores por un período de 
+          {{ periodo_auditoria }} años, contados a partir del ejercicio finalizado el día {{ dia_inicio_periodo }} 
+          de {{ mes_inicio_periodo }} de {{ ano_inicio_periodo }}.
+
+          Con anterioridad, {{ texto_auditor_continuidad }} por acuerdo(s) de la Junta General de Accionistas 
+          para el periodo de {{ periodo_anterior }} años y hemos venido realizando el trabajo de auditoría 
+          de cuentas de forma ininterrumpida desde el ejercicio finalizado el día {{ dia_inicio_auditoria_anterior }} 
+          de {{ mes_inicio_auditoria_anterior }} de {{ ano_inicio_auditoria_anterior }}.
+
+          Servicios prestados
+
+          {{ texto_servicios_adicionales }}
+
+      - cuando: "True"
+        plantilla: ""
+
+  # ============================================================================
+  # SECCIÓN: FIRMA DIGITAL
+  # ============================================================================
+
+  - id: texto_firma_digital
+    descripcion: "Texto de referencia a firma digital ICJCE"
+    reglas:
+      - cuando: "firma_digital == 'si'"
+        plantilla: >
+          Este informe se corresponde con el sello distintivo Nº xx/xx/xxxxx emitido por el Instituto 
+          de Censores Jurados de Cuentas de España.
+      - cuando: "True"
+        plantilla: ""
+
+  # ============================================================================
+  # VARIABLES AUXILIARES (calculadas por build_context)
+  # ============================================================================
+  # Las siguientes variables auxiliares se calculan en Python para simplificar
+  # las plantillas. No son bloques de texto sino valores derivados:
+  #
+  # - nombre_tipo_cuentas: "cuentas anuales" / "cuentas anuales consolidadas" / "cuentas anuales abreviadas"
+  # - nombre_fundamento: "opinión desfavorable" / "denegación de opinión" / "opinión con salvedades"
+  # - sufijo_consolidada: " consolidada" / ""
+  # - sufijo_abreviadas: " abreviadas" / ""
+  # - sufijo_tipo_cuentas: " consolidadas" / " abreviadas" / ""
+  # - sufijo_tipo_cuentas_simple: " consolidadas" / " abreviadas" / ""
+  # - sufijo_consolidado_eip: " consolidado" / ""
+  # - sufijo_consolidado_simple: "consolidado" / ""
+  # - sufijo_sociedad_dominante: "de la Sociedad dominante" / "de la Entidad"
+  # - sufijo_parte_consolidado: "de esta parte" / ""
+  # - sufijo_einf_consolidado: "(EINF) consolidado" / ""
+  # - texto_conocimiento_entidad: "del Grupo" / "de la Entidad"
+  # - texto_cotizada_iagc: ", determinada información incluida en el Informe Anual de Gobierno Corporativo y el Informe Anual de Remuneraciones de los Consejeros, a los que se refiere la Ley de Auditoría de Cuentas," / ""
+  # - texto_einf_facilitado: "se facilita" / "no se facilita"
+  # - texto_auditor_continuidad: "fuimos designados" / "no fuimos designados"
+  # - texto_servicios_adicionales: Texto completo de servicios o "No se han prestado servicios adicionales distintos a la auditoría."
+  # - texto_intro_kam: Texto de introducción para KAM cuando hay incertidumbre u otros
+  # - texto_intro_amra: Texto de introducción para AMRA cuando hay incertidumbre u otros
+  # - nombre_tipo_opinion_fundamento: "desfavorable" / "con salvedades"
+  # - texto_opinion_gestion_einf: Texto de concordancia según opinión
+  # - texto_fundamento_einf: Texto de fundamento para EINF según opinión
+
+# ==============================================================================
+# CONFIGURACIÓN DEL MOTOR DE BLOQUES
+# ==============================================================================
+
+configuracion_bloques:
+  version: "3.0"
+  esquema: "A - Lógica externa"
+  
+  # Evaluación de condiciones
+  evaluador:
+    tipo: "python_eval"  # Las condiciones se evalúan con eval() en Python
+    contexto_requerido:
+      - tipo_opinion
+      - tipo_cuentas
+      - tipo_entidad
+      - tipo_auditoria
+      - marco_normativo
+      - limitacion_alcance
+      - motivo_calificacion
+      - incertidumbre_funcionamiento
+      - enfasis_adicional
+      - amra_voluntario
+      - otros_kam
+      - otros_amra
+      - otras_cuestiones
+      - texto_cuestiones
+      - obligacion_presentar_informe_gestion
+      - obligacion_EINF
+      - einf_facilitado
+      - entidad_cotizada
+      - incluir_PAR_section
+      - auditor_continuidad
+      - firma_digital
+  
+  # Orden de evaluación de reglas
+  orden_evaluacion: "primera_coincidente"  # Se usa la primera regla cuya condición sea True
+  
+  # Manejo de valores vacíos
+  valor_default: ""  # Si ninguna regla coincide, se usa cadena vacía
+
+# ==============================================================================
+# NOTAS DE IMPLEMENTACIÓN
+# ==============================================================================
+# 
+# 1. Este archivo debe cargarse junto con variables_simples.yaml y 
+#    variables_condicionales.yaml
+#
+# 2. La función build_context() en logic.py debe:
+#    a) Cargar todos los YAML
+#    b) Recibir los valores del usuario (data_in)
+#    c) Para cada bloque en bloques_texto:
+#       - Evaluar cada regla en orden
+#       - Usar la primera plantilla cuya condición sea True
+#       - Renderizar la plantilla con Jinja2 (solo variables simples)
+#       - Añadir el resultado al contexto con el id del bloque
+#    d) Calcular las variables auxiliares
+#    e) Devolver el contexto completo para la plantilla Word
+#
+# 3. La plantilla Word solo necesita {{ id_bloque }} para cada sección
+#
+# ==============================================================================
