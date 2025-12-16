@@ -254,6 +254,9 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
     conditional_vars = plugin_config['conditional_variables']
     simple_fields = plugin_config.get('simple_fields', [])
     values = {}
+    processed_groups = set()
+    from core.ui_runtime import identify_date_groups
+    date_groups = identify_date_groups(local_fields)
 
     if not conditional_vars:
         st.info("Este informe no tiene variables condicionales")
@@ -361,24 +364,31 @@ def render_local_fields_for_condition(
                 # Verificar si es un grupo de fecha
                 grupo = getattr(field, 'grupo', None)
                 if grupo:
+                    if grupo in processed_groups:
+                        continue
+
                     # Buscar todos los campos del grupo
-                    from core.ui_runtime import identify_date_groups
-                    all_local_groups = identify_date_groups(local_fields)
-                    if grupo in all_local_groups:
+                    from core.ui_runtime import get_date_group_label
+
+                    if grupo in date_groups:
                         from core.input_widgets import render_date_group_input
-                        group_fields = all_local_groups[grupo]
+                        group_fields = date_groups[grupo]
                         current_values = {f.id: context.get(f.id) for f in group_fields.values()}
-                        result = render_date_group_input(group_fields, current_values)
+                        group_label = get_date_group_label(group_fields, plugin_config['config_dir'])
+                        result = render_date_group_input(
+                            group_fields,
+                            current_values,
+                            grupo,
+                            group_label,
+                        )
                         values.update(result)
-                        # Marcar campos del grupo como procesados
-                        for gf in group_fields.values():
-                            if gf in relevant_fields:
-                                relevant_fields.remove(gf)
-                else:
-                    # Campo individual
-                    value = render_field(field, context)
-                    if value is not None:
-                        values[field.id] = value
+                        processed_groups.add(grupo)
+                    continue
+
+                # Campo individual
+                value = render_field(field, context.get(field.id))
+                if value is not None:
+                    values[field.id] = value
 
     return values
 
@@ -692,17 +702,6 @@ def main():
     with tab_cond:
         cond_values = render_conditional_variables_section(plugin_config, context)
         context.update(cond_values)
-
-        if local_fields:
-            st.markdown("---")
-            local_values = render_simple_fields_section(
-                plugin_config,
-                context,
-                fields=local_fields,
-                header_title="🔗 Variables dependientes de condiciones",
-                default_expanded=True,
-            )
-            context.update(local_values)
 
     with tab_tables:
         table_values = render_tables_section(plugin_config, context)
