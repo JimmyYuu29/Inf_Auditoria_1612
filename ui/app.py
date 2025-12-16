@@ -253,6 +253,7 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
 
     conditional_vars = plugin_config['conditional_variables']
     simple_fields = plugin_config.get('simple_fields', [])
+    local_fields = [f for f in simple_fields if getattr(f, 'ambito', 'global') == 'local']
     values = {}
     processed_groups = set()
     from core.ui_runtime import identify_date_groups
@@ -261,9 +262,6 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
     if not conditional_vars:
         st.info("Este informe no tiene variables condicionales")
         return values
-
-    # Obtener campos locales (con ambito=local y condicion_padre)
-    local_fields = [f for f in simple_fields if getattr(f, 'ambito', 'global') == 'local']
 
     # Agrupar por sección
     vars_by_section = {}
