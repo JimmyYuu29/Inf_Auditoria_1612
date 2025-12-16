@@ -63,6 +63,7 @@ variables_simples:
     dependencia:
       variable: tipo_auditoria
       valor: "Voluntaria"
+    ambito: local
     
   - id: ciudad_auditoria
     nombre: "Ciudad donde se emite el informe"
