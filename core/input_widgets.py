@@ -55,15 +55,20 @@ def _field_key(field: SimpleField) -> str:
 
 
 def render_text_input(field: SimpleField, current_value: Any = None) -> Any:
-    """Renderiza un campo de texto corto."""
+    """Renderiza un campo de texto corto.
+
+    Note: Uses key-based session state only, no value= parameter to prevent
+    'strong control overwrite' issues per design specification.
+    """
     key = _field_key(field)
 
+    # One-time initialization only
     if key not in st.session_state:
         st.session_state[key] = current_value or ""
 
+    # Do NOT pass value= when using key= to avoid "strong control overwrite"
     return st.text_input(
         label=field.nombre,
-        value=st.session_state.get(key, ""),
         placeholder=field.placeholder or "",
         help=field.ayuda,
         key=key,
@@ -71,15 +76,20 @@ def render_text_input(field: SimpleField, current_value: Any = None) -> Any:
 
 
 def render_long_text_input(field: SimpleField, current_value: Any = None) -> Any:
-    """Renderiza un área de texto para descripciones más largas."""
+    """Renderiza un área de texto para descripciones más largas.
+
+    Note: Uses key-based session state only, no value= parameter to prevent
+    'strong control overwrite' issues per design specification.
+    """
     key = _field_key(field)
 
+    # One-time initialization only
     if key not in st.session_state:
         st.session_state[key] = current_value or ""
 
+    # Do NOT pass value= when using key= to avoid "strong control overwrite"
     return st.text_area(
         label=field.nombre,
-        value=st.session_state.get(key, ""),
         placeholder=field.placeholder or "",
         help=field.ayuda,
         key=key,
@@ -87,9 +97,54 @@ def render_long_text_input(field: SimpleField, current_value: Any = None) -> Any
     )
 
 
+def _is_integer_field(field: SimpleField) -> bool:
+    """Determina si un campo debe ser tratado como entero (sin decimales).
+
+    Criterios:
+    - Campos cuyo ID contiene 'numero_nota' (notas de auditoría)
+    - Campos cuyo ID contiene 'periodo' o 'ano_' (años/períodos)
+    - Campos cuyo ID contiene 'dia_' (días)
+    - Campos con min y max que son enteros (ej: día 1-31)
+    """
+    field_id = field.id.lower()
+
+    # Nota fields - always integers
+    if 'numero_nota' in field_id:
+        return True
+
+    # Period and year fields - always integers
+    if 'periodo' in field_id or 'ano_' in field_id:
+        return True
+
+    # Day fields - always integers
+    if 'dia_' in field_id:
+        return True
+
+    # Monto/amount fields that should be integers (thousands of euros)
+    if 'monto_' in field_id:
+        return True
+
+    # Check if min/max are integers
+    if field.min is not None and field.max is not None:
+        min_is_int = float(field.min).is_integer()
+        max_is_int = float(field.max).is_integer()
+        if min_is_int and max_is_int:
+            return True
+
+    return False
+
+
 def render_number_input(field: SimpleField, current_value: Any = None) -> Any:
-    """Renderiza un campo numérico con soporte para límites y decimales."""
+    """Renderiza un campo numérico con soporte para límites y decimales.
+
+    Note: For number_input, we must pass value= for proper initialization,
+    but this is only the initial value used when session_state is empty.
+    Streamlit's number_input handles this correctly when key= is provided.
+    """
     key = _field_key(field)
+
+    # Determine if this should be an integer field
+    use_integer = _is_integer_field(field)
 
     min_val = float(field.min) if field.min is not None else None
     max_val = float(field.max) if field.max is not None else None
@@ -106,28 +161,49 @@ def render_number_input(field: SimpleField, current_value: Any = None) -> Any:
         else:
             initial_value = 0.0
 
-        st.session_state[key] = float(initial_value)
+        # Convert to int for integer fields
+        if use_integer:
+            st.session_state[key] = int(initial_value)
+        else:
+            st.session_state[key] = float(initial_value)
 
-    # Decide step (keep previous behavior)
-    has_decimals = any(
-        isinstance(val, float) and not float(val).is_integer()
-        for val in (field.min, field.max, st.session_state.get(key))
-        if val is not None
-    )
-    step = 0.01 if has_decimals else 1.0
+    # Decide step based on field type
+    if use_integer:
+        step = 1
+        # Ensure stored value is an integer
+        current_stored = st.session_state.get(key, 0)
+        if isinstance(current_stored, float):
+            st.session_state[key] = int(current_stored)
+    else:
+        # Check for decimal values in min/max/current
+        has_decimals = any(
+            isinstance(val, float) and not float(val).is_integer()
+            for val in (field.min, field.max, st.session_state.get(key))
+            if val is not None
+        )
+        step = 0.01 if has_decimals else 1.0
 
-    number_input_args = {
-        "label": field.nombre,
-        "value": float(st.session_state.get(key, 0.0)),
-        "step": float(step),
-        "help": field.ayuda,
-        "key": key,
-    }
+    # Build number_input arguments - no value= to let session_state control
+    if use_integer:
+        number_input_args = {
+            "label": field.nombre,
+            "step": step,
+            "help": field.ayuda,
+            "key": key,
+            "format": "%d",  # Integer format
+        }
+    else:
+        number_input_args = {
+            "label": field.nombre,
+            "step": float(step),
+            "help": field.ayuda,
+            "key": key,
+        }
 
     if min_val is not None:
-        number_input_args["min_value"] = min_val
+        number_input_args["min_value"] = int(min_val) if use_integer else min_val
     if max_val is not None:
-        number_input_args["max_value"] = max_val
+        number_input_args["max_value"] = int(max_val) if use_integer else max_val
 
     return st.number_input(**number_input_args)
 
@@ -158,16 +234,20 @@ def render_select_input(field: SimpleField, current_value: Any = None) -> Any:
 
 
 def render_date_input(field: SimpleField, current_value: Any = None) -> Optional[date]:
-    """Renderiza un selector de fecha con calendario integrado."""
+    """Renderiza un selector de fecha con calendario integrado.
+
+    Note: Uses key-based session state only, no value= parameter to prevent
+    'strong control overwrite' issues per design specification.
+    """
     key = _field_key(field)
 
+    # One-time initialization only
     if key not in st.session_state:
         st.session_state[key] = _ensure_date(current_value) or date.today()
 
-    # date_input requires a value; keep it in sync with session_state
+    # Do NOT pass value= when using key= to avoid "strong control overwrite"
     return st.date_input(
         label=field.nombre,
-        value=st.session_state.get(key, date.today()),
         help=field.ayuda,
         key=key,
         format="YYYY-MM-DD",
@@ -246,9 +326,9 @@ def render_date_group_input(
     if group_key not in st.session_state:
         st.session_state[group_key] = initial_date
 
+    # Do NOT pass value= when using key= to avoid "strong control overwrite"
     selected_date = st.date_input(
         label=group_label,
-        value=st.session_state.get(group_key, initial_date),
         help="Selecciona la fecha usando el calendario",
         key=group_key,
         format="DD/MM/YYYY",
