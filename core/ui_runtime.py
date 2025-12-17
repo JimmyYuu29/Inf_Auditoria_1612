@@ -182,40 +182,22 @@ def render_conditional_variable(var: ConditionalVariable,
 
     help_text = getattr(var, "descripcion", None)
 
+    # Do NOT pass index= when using key= to avoid "strong control overwrite"
+    # Session state is already initialized above, Streamlit will use it
     if var.tipo_control == "radio":
-        # Importante: NO forzar `index` si el widget ya tiene estado propio
-        if ui_key in st.session_state:
-            selected_label = st.radio(
-                label=var.nombre,
-                options=labels,
-                help=help_text,
-                key=ui_key,
-            )
-        else:
-            selected_label = st.radio(
-                label=var.nombre,
-                options=labels,
-                index=labels.index(st.session_state[ui_key]),
-                help=help_text,
-                key=ui_key,
-            )
-
+        selected_label = st.radio(
+            label=var.nombre,
+            options=labels,
+            help=help_text,
+            key=ui_key,
+        )
     elif var.tipo_control == "select":
-        if ui_key in st.session_state:
-            selected_label = st.selectbox(
-                label=var.nombre,
-                options=labels,
-                help=help_text,
-                key=ui_key,
-            )
-        else:
-            selected_label = st.selectbox(
-                label=var.nombre,
-                options=labels,
-                index=labels.index(st.session_state[ui_key]),
-                help=help_text,
-                key=ui_key,
-            )
+        selected_label = st.selectbox(
+            label=var.nombre,
+            options=labels,
+            help=help_text,
+            key=ui_key,
+        )
     else:
         st.warning(f"Tipo de control desconocido: {var.tipo_control}")
         selected_label = st.session_state[ui_key]

@@ -259,6 +259,8 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
     local_fields = [f for f in simple_fields if getattr(f, 'ambito', 'global') == 'local']
     values = {}
     processed_groups = set()
+    # Track rendered local fields to prevent DuplicateWidgetID errors
+    rendered_local_fields = set()
     from core.ui_runtime import identify_date_groups
     date_groups = identify_date_groups(local_fields)
 
@@ -303,6 +305,7 @@ def render_conditional_variables_section(plugin_config: Dict[str, Any],
                     plugin_config=plugin_config,
                     processed_groups=processed_groups,
                     date_groups=date_groups,
+                    rendered_local_fields=rendered_local_fields,
                 )
                 values.update(local_values)
                 context.update(local_values)
@@ -318,6 +321,7 @@ def render_local_fields_for_condition(
     plugin_config: Dict[str, Any],
     processed_groups: set,
     date_groups: Dict[str, Any],
+    rendered_local_fields: Optional[set] = None,
 ) -> Dict[str, Any]:
     """
     Renderiza los campos locales asociados a una variable condicional.
@@ -328,6 +332,9 @@ def render_local_fields_for_condition(
         local_fields: Lista de campos locales
         context: Contexto actual
         plugin_config: Configuración del plugin
+        processed_groups: Conjunto de grupos de fecha ya procesados
+        date_groups: Diccionario de grupos de fecha
+        rendered_local_fields: Conjunto de campos locales ya renderizados (evita duplicados)
 
     Returns:
         Diccionario con valores de campos locales
@@ -336,6 +343,8 @@ def render_local_fields_for_condition(
     from core.ui_runtime import render_field
 
     values = {}
+    if rendered_local_fields is None:
+        rendered_local_fields = set()
 
     # Encontrar campos locales cuya condicion_padre involucra esta variable
     relevant_fields = []
@@ -370,48 +379,61 @@ def render_local_fields_for_condition(
 
     # Renderizar campos relevantes en un contenedor visual
     if relevant_fields:
-        st.markdown("---")
-        st.markdown(f"**📝 Campos asociados:**")
+        # Filter out already rendered fields to prevent DuplicateWidgetID
+        new_fields = [f for f in relevant_fields if f.id not in rendered_local_fields]
 
-        # Agrupar por sección para mejor organización
-        fields_by_section = {}
-        for field in relevant_fields:
-            section = getattr(field, 'seccion', 'Campos adicionales')
-            if section not in fields_by_section:
-                fields_by_section[section] = []
-            fields_by_section[section].append(field)
+        if new_fields:
+            st.markdown("---")
+            st.markdown(f"**📝 Campos asociados:**")
 
-        for section, fields in fields_by_section.items():
-            st.caption(f"*{section}*")
-            for field in fields:
-                # Verificar si es un grupo de fecha
-                grupo = getattr(field, 'grupo', None)
-                if grupo:
-                    if grupo in processed_groups:
+            # Agrupar por sección para mejor organización
+            fields_by_section = {}
+            for field in new_fields:
+                section = getattr(field, 'seccion', 'Campos adicionales')
+                if section not in fields_by_section:
+                    fields_by_section[section] = []
+                fields_by_section[section].append(field)
+
+            for section, fields in fields_by_section.items():
+                st.caption(f"*{section}*")
+                for field in fields:
+                    # Skip if already rendered
+                    if field.id in rendered_local_fields:
                         continue
 
-                    # Buscar todos los campos del grupo
-                    from core.ui_runtime import get_date_group_label
+                    # Verificar si es un grupo de fecha
+                    grupo = getattr(field, 'grupo', None)
+                    if grupo:
+                        if grupo in processed_groups:
+                            continue
 
-                    if grupo in date_groups:
-                        from core.input_widgets import render_date_group_input
-                        group_fields = date_groups[grupo]
-                        current_values = {f.id: context.get(f.id) for f in group_fields.values()}
-                        group_label = get_date_group_label(group_fields, plugin_config['config_dir'])
-                        result = render_date_group_input(
-                            group_fields,
-                            current_values,
-                            grupo,
-                            group_label,
-                        )
-                        values.update(result)
-                        processed_groups.add(grupo)
-                    continue
+                        # Buscar todos los campos del grupo
+                        from core.ui_runtime import get_date_group_label
 
-                # Campo individual
-                value = render_field(field, context.get(field.id))
-                if value is not None:
-                    values[field.id] = value
+                        if grupo in date_groups:
+                            from core.input_widgets import render_date_group_input
+                            group_fields = date_groups[grupo]
+                            current_values = {f.id: context.get(f.id) for f in group_fields.values()}
+                            group_label = get_date_group_label(group_fields, plugin_config['config_dir'])
+                            result = render_date_group_input(
+                                group_fields,
+                                current_values,
+                                grupo,
+                                group_label,
+                            )
+                            values.update(result)
+                            processed_groups.add(grupo)
+                            # Mark all fields in the group as rendered
+                            for gf in group_fields.values():
+                                rendered_local_fields.add(gf.id)
+                        continue
+
+                    # Campo individual
+                    value = render_field(field, context.get(field.id))
+                    if value is not None:
+                        values[field.id] = value
+                    # Mark field as rendered
+                    rendered_local_fields.add(field.id)
 
     return values
 
@@ -703,16 +725,26 @@ def main():
     # Contexto para seguimiento de valores
     context = dict(st.session_state.form_data)
 
-    # Reorganizar tabs para que Variables simples esté primero, luego Variables condicionales
-    tab_simple, tab_cond, tab_tables, tab_design, tab_files = st.tabs([
-        "📝 Variables simples",
-        "⚙️ Variables condicionales",
-        "📊 Tablas",
-        "🎨 Diseño de Tablas",
-        "📁 Archivos",
-    ])
+    # Check if tables exist for this plugin
+    has_tables = bool(plugin_config.get('tables'))
+    manifest = plugin_config.get('manifest')
+    report_id = manifest.id if manifest else None
+    # transferencia_precio uses specialized table UI
+    is_tp_report = report_id == 'transferencia_precio'
 
-    with tab_simple:
+    # Build tab list dynamically based on available content
+    tab_names = ["📝 Variables simples", "⚙️ Variables condicionales"]
+    if has_tables or is_tp_report:
+        tab_names.append("📊 Tablas")
+        tab_names.append("🎨 Diseño de Tablas")
+    tab_names.append("📁 Archivos")
+
+    # Create tabs dynamically
+    tabs = st.tabs(tab_names)
+    tab_index = 0
+
+    # Tab: Variables simples
+    with tabs[tab_index]:
         field_values = render_simple_fields_section(
             plugin_config,
             context,
@@ -721,26 +753,35 @@ def main():
             default_expanded=True,
         )
         context.update(field_values)
+    tab_index += 1
 
-    with tab_cond:
+    # Tab: Variables condicionales
+    with tabs[tab_index]:
         cond_values = render_conditional_variables_section(plugin_config, context)
         context.update(cond_values)
+    tab_index += 1
 
-    with tab_tables:
-        table_values = render_tables_section(plugin_config, context)
-        context.update(table_values)
+    # Tab: Tablas (only if tables exist)
+    if has_tables or is_tp_report:
+        with tabs[tab_index]:
+            table_values = render_tables_section(plugin_config, context)
+            context.update(table_values)
+        tab_index += 1
 
-    with tab_design:
-        # Importar la función de diseño de tablas
-        from ui.table_design_ui import render_table_design_window
+        # Tab: Diseño de Tablas
+        with tabs[tab_index]:
+            # Importar la función de diseño de tablas
+            from ui.table_design_ui import render_table_design_window
 
-        # Renderizar la ventana de diseño de tablas
-        table_design_config = render_table_design_window()
+            # Renderizar la ventana de diseño de tablas
+            table_design_config = render_table_design_window()
 
-        # Guardar la configuración de diseño en el contexto
-        context['_table_design_config'] = table_design_config
+            # Guardar la configuración de diseño en el contexto
+            context['_table_design_config'] = table_design_config
+        tab_index += 1
 
-    with tab_files:
+    # Tab: Archivos (always last)
+    with tabs[tab_index]:
         st.header("📁 Archivos de configuración del informe")
         config_dir = plugin_config['config_dir']
         st.write(f"Directorio de configuración: `{config_dir}`")
