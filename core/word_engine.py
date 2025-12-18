@@ -101,6 +101,176 @@ def clean_context_formatting(context: Dict[str, Any]) -> Dict[str, Any]:
     return cleaned
 
 
+def remove_empty_paragraphs_from_docx(doc_path: Path, max_consecutive_empty: int = 1) -> bool:
+    """
+    Elimina párrafos vacíos consecutivos de un documento Word.
+
+    Esta función procesa el documento después de la generación para limpiar
+    los párrafos vacíos que pueden quedar cuando secciones condicionales
+    no se muestran.
+
+    Args:
+        doc_path: Path al documento Word a procesar
+        max_consecutive_empty: Máximo número de párrafos vacíos consecutivos permitidos
+
+    Returns:
+        True si se procesó correctamente, False si hubo error
+    """
+    try:
+        from docx import Document
+        from docx.oxml.ns import qn
+
+        doc = Document(str(doc_path))
+        body = doc.element.body
+
+        # Lista para almacenar párrafos a eliminar
+        paragraphs_to_remove = []
+        consecutive_empty_count = 0
+
+        for element in body:
+            # Solo procesar elementos de párrafo (<w:p>)
+            if element.tag == qn('w:p'):
+                # Verificar si el párrafo está vacío
+                text = ''.join(node.text or '' for node in element.iter(qn('w:t')))
+                is_empty = len(text.strip()) == 0
+
+                # También verificar si tiene contenido de tabla o imagen (preservar estos)
+                has_table = element.find('.//' + qn('w:tbl')) is not None
+                has_drawing = element.find('.//' + qn('w:drawing')) is not None
+                has_picture = element.find('.//' + qn('w:pict')) is not None
+
+                if is_empty and not has_table and not has_drawing and not has_picture:
+                    consecutive_empty_count += 1
+                    if consecutive_empty_count > max_consecutive_empty:
+                        paragraphs_to_remove.append(element)
+                else:
+                    consecutive_empty_count = 0
+            else:
+                # Resetear contador para elementos no-párrafo (tablas, etc.)
+                consecutive_empty_count = 0
+
+        # Eliminar los párrafos marcados
+        for para in paragraphs_to_remove:
+            body.remove(para)
+
+        # Guardar el documento procesado
+        doc.save(str(doc_path))
+
+        logger.info(f"Eliminados {len(paragraphs_to_remove)} párrafos vacíos excesivos de {doc_path.name}")
+        return True
+
+    except ImportError:
+        logger.warning("python-docx no está instalado. No se puede limpiar párrafos vacíos.")
+        return False
+    except Exception as e:
+        logger.error(f"Error limpiando párrafos vacíos: {e}")
+        return False
+
+
+def clean_document_spacing(doc_path: Path) -> bool:
+    """
+    Limpia el espaciado del documento de forma integral.
+
+    Realiza las siguientes operaciones:
+    1. Elimina párrafos vacíos consecutivos excesivos
+    2. Elimina párrafos vacíos al inicio del documento
+    3. Elimina párrafos vacíos al final del documento
+
+    Args:
+        doc_path: Path al documento Word a procesar
+
+    Returns:
+        True si se procesó correctamente, False si hubo error
+    """
+    try:
+        from docx import Document
+        from docx.oxml.ns import qn
+
+        doc = Document(str(doc_path))
+        body = doc.element.body
+
+        def is_paragraph_empty(element) -> bool:
+            """Verifica si un párrafo está vacío."""
+            if element.tag != qn('w:p'):
+                return False
+            text = ''.join(node.text or '' for node in element.iter(qn('w:t')))
+            has_table = element.find('.//' + qn('w:tbl')) is not None
+            has_drawing = element.find('.//' + qn('w:drawing')) is not None
+            has_picture = element.find('.//' + qn('w:pict')) is not None
+            return len(text.strip()) == 0 and not has_table and not has_drawing and not has_picture
+
+        def is_section_break(element) -> bool:
+            """Verifica si el párrafo contiene un salto de sección."""
+            return element.find('.//' + qn('w:sectPr')) is not None
+
+        elements = list(body)
+        paragraphs_to_remove = []
+
+        # Fase 1: Eliminar párrafos vacíos al inicio (excepto si tienen salto de sección)
+        for element in elements:
+            if element.tag == qn('w:p'):
+                if is_paragraph_empty(element) and not is_section_break(element):
+                    paragraphs_to_remove.append(element)
+                else:
+                    break
+            elif element.tag != qn('w:sectPr'):
+                break
+
+        # Fase 2: Eliminar párrafos vacíos consecutivos en el medio
+        consecutive_empty = []
+        for element in elements:
+            if element in paragraphs_to_remove:
+                continue
+
+            if element.tag == qn('w:p'):
+                if is_paragraph_empty(element) and not is_section_break(element):
+                    consecutive_empty.append(element)
+                else:
+                    # Mantener máximo 1 párrafo vacío entre contenido
+                    if len(consecutive_empty) > 1:
+                        paragraphs_to_remove.extend(consecutive_empty[1:])
+                    consecutive_empty = []
+            else:
+                # Para elementos no-párrafo (tablas), eliminar todos los párrafos vacíos antes
+                if len(consecutive_empty) > 1:
+                    paragraphs_to_remove.extend(consecutive_empty[1:])
+                consecutive_empty = []
+
+        # Fase 3: Eliminar párrafos vacíos al final
+        reversed_elements = list(reversed(elements))
+        for element in reversed_elements:
+            if element in paragraphs_to_remove:
+                continue
+
+            if element.tag == qn('w:p'):
+                if is_paragraph_empty(element) and not is_section_break(element):
+                    paragraphs_to_remove.append(element)
+                else:
+                    break
+            elif element.tag not in [qn('w:sectPr')]:
+                break
+
+        # Eliminar los párrafos marcados
+        for para in paragraphs_to_remove:
+            try:
+                body.remove(para)
+            except ValueError:
+                pass  # Ya fue eliminado
+
+        # Guardar el documento procesado
+        doc.save(str(doc_path))
+
+        logger.info(f"Limpieza de espaciado completada: {len(paragraphs_to_remove)} párrafos eliminados de {doc_path.name}")
+        return True
+
+    except ImportError:
+        logger.warning("python-docx no está instalado. No se puede limpiar espaciado.")
+        return False
+    except Exception as e:
+        logger.error(f"Error limpiando espaciado del documento: {e}")
+        return False
+
+
 # ==============================================================================
 # RENDERIZADO BÁSICO DE PLANTILLAS
 # ==============================================================================
@@ -215,6 +385,11 @@ def _render_with_jinja2(template_path: Path, context: Dict[str, Any],
 
         # Guardar documento
         doc.save(str(output_path))
+
+        # Post-procesamiento: limpiar párrafos vacíos excesivos del documento
+        # Esto elimina espacios en blanco dejados por secciones condicionales no mostradas
+        logger.info("Aplicando limpieza de espaciado del documento...")
+        clean_document_spacing(output_path)
 
         logger.info(f"✅ Informe Word generado exitosamente: {output_path}")
         return output_path

@@ -71,13 +71,34 @@ def get_reports_dir() -> Path:
 def get_outputs_dir() -> Path:
     """
     Obtiene (y crea si no existe) el directorio de salida.
-    
+
+    Intenta usar /mnt/user-data/outputs primero (para entornos locales),
+    si no es posible, usa un directorio temporal (para Streamlit Cloud).
+
     Returns:
         Path al directorio de outputs
     """
-    output_dir = Path("/mnt/user-data/outputs")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return output_dir
+    import tempfile
+    import os
+
+    # Intentar usar el directorio preferido primero
+    preferred_dir = Path("/mnt/user-data/outputs")
+
+    try:
+        preferred_dir.mkdir(parents=True, exist_ok=True)
+        # Verificar que podemos escribir en el directorio
+        test_file = preferred_dir / ".write_test"
+        test_file.touch()
+        test_file.unlink()
+        return preferred_dir
+    except (PermissionError, OSError):
+        pass
+
+    # Fallback: usar directorio temporal del sistema
+    # En Streamlit Cloud, esto funcionará correctamente
+    temp_base = Path(tempfile.gettempdir()) / "streamlit_outputs"
+    temp_base.mkdir(parents=True, exist_ok=True)
+    return temp_base
 
 
 def safe_filename(filename: str) -> str:
