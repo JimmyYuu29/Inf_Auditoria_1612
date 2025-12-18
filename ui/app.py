@@ -6,6 +6,7 @@ Incluye funcionalidad de metadatos para guardar y cargar configuraciones.
 """
 
 import sys
+import io
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -89,6 +90,16 @@ def init_session_state():
     if 'initialized' not in st.session_state:
         st.session_state.initialized = False
 
+    # Estado para almacenar el archivo generado (para compatibilidad con Streamlit Cloud)
+    if 'generated_file_data' not in st.session_state:
+        st.session_state.generated_file_data = None
+
+    if 'generated_file_name' not in st.session_state:
+        st.session_state.generated_file_name = None
+
+    if 'generation_success' not in st.session_state:
+        st.session_state.generation_success = False
+
 
 # ==============================================================================
 # SELECCIÓN DE PLUGIN Y MODO DE TRABAJO
@@ -123,6 +134,10 @@ def render_sidebar():
             st.session_state.loaded_metadata_id = None
             st.session_state.selected_report = None
             st.session_state.plugin_config = None
+            # Limpiar estado de archivo generado
+            st.session_state.generated_file_data = None
+            st.session_state.generated_file_name = None
+            st.session_state.generation_success = False
             st.rerun()
 
     st.sidebar.markdown("---")
@@ -861,32 +876,45 @@ def main():
 
             if not is_valid:
                 show_validation_errors(errors)
+                # Limpiar estado anterior si la validación falla
+                st.session_state.generation_success = False
             else:
                 # Generar informe
                 with st.spinner("Generando informe..."):
                     output_path = generate_report(plugin_config, context, save_meta=True)
 
                 if output_path:
-                    show_success_message(f"✅ Informe generado exitosamente")
-
-                    st.info(f"**Archivo:** `{output_path.name}`")
-                    st.info(f"**Ubicación:** `{output_path}`")
-                    st.success("💾 Metadatos guardados para futura reutilización")
-
-                    # Botón de descarga
+                    # Leer el archivo y guardarlo en session_state para compatibilidad con Streamlit Cloud
                     try:
                         with open(output_path, 'rb') as f:
-                            file_data = f.read()
-
-                        st.download_button(
-                            label="📥 Descargar Informe",
-                            data=file_data,
-                            file_name=output_path.name,
-                            mime='application/octet-stream',
-                            use_container_width=True
-                        )
+                            st.session_state.generated_file_data = f.read()
+                        st.session_state.generated_file_name = output_path.name
+                        st.session_state.generation_success = True
                     except Exception as e:
-                        st.error(f"Error al preparar descarga: {e}")
+                        st.error(f"Error al leer el archivo generado: {e}")
+                        st.session_state.generation_success = False
+                else:
+                    st.session_state.generation_success = False
+                    st.error("Error al generar el informe")
+
+    # Mostrar área de descarga (fuera del bloque del botón para persistencia)
+    if st.session_state.generation_success and st.session_state.generated_file_data:
+        st.markdown("---")
+        st.success("✅ Informe generado exitosamente")
+        st.info(f"**Archivo:** `{st.session_state.generated_file_name}`")
+        st.success("💾 Metadatos guardados para futura reutilización")
+
+        # Botón de descarga persistente usando datos en memoria
+        col_dl1, col_dl2, col_dl3 = st.columns([1, 2, 1])
+        with col_dl2:
+            st.download_button(
+                label="📥 Descargar Informe",
+                data=st.session_state.generated_file_data,
+                file_name=st.session_state.generated_file_name,
+                mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                use_container_width=True,
+                key="download_generated_report"
+            )
 
     # Footer
     st.markdown("---")
