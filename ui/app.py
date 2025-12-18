@@ -494,17 +494,51 @@ def render_simple_fields_section(
     # Renderizar campos usando render_section_fields que soporta date groups
     all_values = {}
 
+    # Importar funciones necesarias para verificar visibilidad
+    from core.ui_runtime import render_section_fields, should_show_field_in_ui, identify_date_groups
+
     for section in sections:
         if section not in fields_by_section:
             continue
 
-        with st.expander(f"📋 {section}", expanded=default_expanded):
-            # Usar render_section_fields modificado para soportar date groups
-            from core.ui_runtime import render_section_fields
+        section_fields = fields_by_section[section]
 
+        # Verificar si al menos un campo de la sección debe mostrarse
+        # Considerar también los grupos de fechas
+        date_groups = identify_date_groups(section_fields)
+        has_visible_fields = False
+
+        # Verificar campos individuales (no en grupos de fecha)
+        grouped_field_ids = set()
+        for group_fields in date_groups.values():
+            for field in group_fields.values():
+                grouped_field_ids.add(field.id)
+
+        for field in section_fields:
+            if field.id in grouped_field_ids:
+                continue  # Se verificará como parte del grupo
+            if should_show_field_in_ui(field, context):
+                has_visible_fields = True
+                break
+
+        # Verificar grupos de fecha
+        if not has_visible_fields:
+            for group_name, group_fields in date_groups.items():
+                for field in group_fields.values():
+                    if should_show_field_in_ui(field, context):
+                        has_visible_fields = True
+                        break
+                if has_visible_fields:
+                    break
+
+        # Solo crear el expander si hay campos visibles
+        if not has_visible_fields:
+            continue
+
+        with st.expander(f"📋 {section}", expanded=default_expanded):
             section_values = render_section_fields(
                 section_name="",  # No mostrar subheader porque ya tenemos el expander
-                fields=fields_by_section[section],
+                fields=section_fields,
                 context=context,
                 config_dir=config_dir,
             )
@@ -611,7 +645,12 @@ def generate_report(plugin_config: Dict[str, Any], form_data: Dict[str, Any],
         logger.info("Renderizando informe...")
         output_path = render_word_report(template_path, context, output_filename)
 
-        # Guardar metadatos si se solicita
+        # Verificar si la generación fue exitosa
+        if output_path is None:
+            logger.error("render_word_report devolvió None - error en la generación")
+            return None
+
+        # Guardar metadatos si se solicita (solo si output_path es válido)
         if save_meta:
             metadata = create_metadata(
                 report_id=manifest.id,
