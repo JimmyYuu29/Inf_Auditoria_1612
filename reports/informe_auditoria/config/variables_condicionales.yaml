@@ -119,17 +119,17 @@ variables_condicionales:
         etiqueta: "Opinión con salvedades"
         descripcion: "Excepto por ciertos aspectos, las cuentas expresan la imagen fiel"
         variables_asociadas:
+          - num_salvedades
           - limitacion_alcance
           - motivo_calificacion
-          - num_salvedades
           
       - valor: "desfavorable"
         etiqueta: "Opinión desfavorable (adversa)"
         descripcion: "Las cuentas no expresan la imagen fiel"
         variables_asociadas:
+          - num_desfavorables
           - numero_nota_desfavorable
           - descripcion_desfavorable
-          - num_desfavorables
           
       - valor: "denegada"
         etiqueta: "Denegación de opinión (disclaimer)"

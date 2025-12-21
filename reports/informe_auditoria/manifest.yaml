@@ -4,7 +4,8 @@
 
 id: informe_auditoria
 nombre: Informe de Auditoría de Cuentas Anuales
-version: "1.0.0"
+version: "1.2.0"
+release_date: "20251220"
 descripcion: >
   Generación automatizada de informes de auditoría de cuentas anuales
   según normativa española (LAC) y europea (Reglamento UE 537/2014).
