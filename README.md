@@ -165,8 +165,41 @@ variables_condicionales:
         es_default: true
       - valor: "salvedades"
         etiqueta: "Con salvedades"
-        variables_asociadas: [motivo_salvedades]
+        variables_asociadas: [motivo_salvedades, num_salvedades]
+      - valor: "desfavorable"
+        etiqueta: "Opinión desfavorable"
+        variables_asociadas: [descripcion_desfavorable, num_desfavorables]
 ```
+
+### Soporte Multi-Issue (Múltiples Cuestiones)
+
+Para opiniones con salvedades o desfavorables, el sistema soporta múltiples cuestiones:
+
+```yaml
+# En variables_simples.yaml - campos locales
+- id: num_salvedades
+  nombre: "Número de salvedades"
+  tipo: numero
+  min: 1
+  max: 10
+  ambito: local
+  condicion_padre: "tipo_opinion == 'salvedades'"
+
+- id: num_desfavorables
+  nombre: "Número de cuestiones (desfavorable)"
+  tipo: numero
+  min: 1
+  max: 10
+  ambito: local
+  condicion_padre: "tipo_opinion == 'desfavorable'"
+```
+
+**Características:**
+- Cuando N > 1, se renderizan N expanders colapsados en la UI
+- Cada expander contiene un conjunto completo de campos
+- Los valores se almacenan con claves compuestas: `salvedad_1__numero_nota`, `salvedad_2__numero_nota`, etc.
+- La generación de Word produce N párrafos en `parrafo_fundamento_calificacion`
+- El sistema convierte automáticamente marcadores de plural: `la(s)` → `la`/`las`, `cuestión(es)` → `cuestión`/`cuestiones`
 
 ### bloques_texto.yaml
 

@@ -121,6 +121,7 @@ variables_condicionales:
         variables_asociadas:
           - limitacion_alcance
           - motivo_calificacion
+          - num_salvedades
           
       - valor: "desfavorable"
         etiqueta: "Opinión desfavorable (adversa)"
@@ -128,6 +129,7 @@ variables_condicionales:
         variables_asociadas:
           - numero_nota_desfavorable
           - descripcion_desfavorable
+          - num_desfavorables
           
       - valor: "denegada"
         etiqueta: "Denegación de opinión (disclaimer)"

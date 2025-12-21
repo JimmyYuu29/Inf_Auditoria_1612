@@ -212,33 +212,34 @@ def render_conditional_variable(var: ConditionalVariable,
 # GENERACIÓN DE FORMULARIO COMPLETO
 # ==============================================================================
 
-def render_field(field: SimpleField, current_value: Any = None) -> Any:
+def render_field(field: SimpleField, current_value: Any = None, key_prefix: Optional[str] = None) -> Any:
     """
     Renderiza un campo según su tipo.
-    
+
     Args:
         field: Definición del campo
         current_value: Valor actual
-    
+        key_prefix: Optional prefix for multi-instance fields (e.g., "salvedad_1")
+
     Returns:
         Valor introducido por el usuario
     """
     # Renderizar según tipo
     if field.tipo == "texto":
-        return render_text_input(field, current_value)
+        return render_text_input(field, current_value, key_prefix)
 
     elif field.tipo == "texto_largo":
-        return render_long_text_input(field, current_value)
+        return render_long_text_input(field, current_value, key_prefix)
 
     elif field.tipo == "numero":
-        return render_number_input(field, current_value)
+        return render_number_input(field, current_value, key_prefix)
 
     elif field.tipo == "lista":
-        return render_select_input(field, current_value)
+        return render_select_input(field, current_value, key_prefix)
 
     elif field.tipo == "fecha":
-        return render_date_input(field, current_value)
-    
+        return render_date_input(field, current_value, key_prefix)
+
     else:
         st.warning(f"Tipo de campo no soportado: {field.tipo}")
         return None

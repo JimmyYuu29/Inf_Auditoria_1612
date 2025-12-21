@@ -354,7 +354,28 @@ variables_simples:
       valor: "si"
     
   # ==================== VARIABLES LOCALES (ESPECÍFICAS DE CONDICIONES) ====================
-  
+
+  # --- Campos para múltiples salvedades/cuestiones ---
+  - id: num_salvedades
+    nombre: "Número de salvedades"
+    tipo: numero
+    requerido: false
+    min: 1
+    max: 10
+    seccion: "Opinión de auditoría"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades'"
+
+  - id: num_desfavorables
+    nombre: "Número de cuestiones (desfavorable)"
+    tipo: numero
+    requerido: false
+    min: 1
+    max: 10
+    seccion: "Opinión de auditoría"
+    ambito: local
+    condicion_padre: "tipo_opinion == 'desfavorable'"
+
   - id: numero_nota_incorreccion
     nombre: "Número de nota sobre la incorrección material"
     tipo: numero
