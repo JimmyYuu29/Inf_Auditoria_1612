@@ -49,18 +49,32 @@ def _ensure_date(value: Any) -> Optional[date]:
     return None
 
 
-def _field_key(field: SimpleField) -> str:
-    """Stable session key for a field."""
-    return f"field_{field.id}"
+def _field_key(field: SimpleField, key_prefix: Optional[str] = None) -> str:
+    """Stable session key for a field.
+
+    Args:
+        field: The field to generate a key for
+        key_prefix: Optional prefix to make the key unique (for multi-instance fields)
+
+    Returns:
+        A unique key string for session state
+    """
+    base = f"field_{field.id}"
+    return f"{key_prefix}__{base}" if key_prefix else base
 
 
-def render_text_input(field: SimpleField, current_value: Any = None) -> Any:
+def render_text_input(field: SimpleField, current_value: Any = None, key_prefix: Optional[str] = None) -> Any:
     """Renderiza un campo de texto corto.
 
     Note: Uses key-based session state only, no value= parameter to prevent
     'strong control overwrite' issues per design specification.
+
+    Args:
+        field: Field definition
+        current_value: Initial value (used only for first initialization)
+        key_prefix: Optional prefix for multi-instance fields
     """
-    key = _field_key(field)
+    key = _field_key(field, key_prefix)
 
     # One-time initialization only
     if key not in st.session_state:
@@ -75,13 +89,18 @@ def render_text_input(field: SimpleField, current_value: Any = None) -> Any:
     )
 
 
-def render_long_text_input(field: SimpleField, current_value: Any = None) -> Any:
+def render_long_text_input(field: SimpleField, current_value: Any = None, key_prefix: Optional[str] = None) -> Any:
     """Renderiza un área de texto para descripciones más largas.
 
     Note: Uses key-based session state only, no value= parameter to prevent
     'strong control overwrite' issues per design specification.
+
+    Args:
+        field: Field definition
+        current_value: Initial value (used only for first initialization)
+        key_prefix: Optional prefix for multi-instance fields
     """
-    key = _field_key(field)
+    key = _field_key(field, key_prefix)
 
     # One-time initialization only
     if key not in st.session_state:
@@ -134,14 +153,19 @@ def _is_integer_field(field: SimpleField) -> bool:
     return False
 
 
-def render_number_input(field: SimpleField, current_value: Any = None) -> Any:
+def render_number_input(field: SimpleField, current_value: Any = None, key_prefix: Optional[str] = None) -> Any:
     """Renderiza un campo numérico con soporte para límites y decimales.
 
     Note: For number_input, we must pass value= for proper initialization,
     but this is only the initial value used when session_state is empty.
     Streamlit's number_input handles this correctly when key= is provided.
+
+    Args:
+        field: Field definition
+        current_value: Initial value (used only for first initialization)
+        key_prefix: Optional prefix for multi-instance fields
     """
-    key = _field_key(field)
+    key = _field_key(field, key_prefix)
 
     # Determine if this should be an integer field
     use_integer = _is_integer_field(field)
@@ -208,13 +232,19 @@ def render_number_input(field: SimpleField, current_value: Any = None) -> Any:
     return st.number_input(**number_input_args)
 
 
-def render_select_input(field: SimpleField, current_value: Any = None) -> Any:
-    """Renderiza un selector de opciones para campos de lista."""
+def render_select_input(field: SimpleField, current_value: Any = None, key_prefix: Optional[str] = None) -> Any:
+    """Renderiza un selector de opciones para campos de lista.
+
+    Args:
+        field: Field definition
+        current_value: Initial value (used only for first initialization)
+        key_prefix: Optional prefix for multi-instance fields
+    """
     if not field.opciones:
         st.warning(f"Campo '{field.nombre}' no tiene opciones definidas")
         return None
 
-    key = _field_key(field)
+    key = _field_key(field, key_prefix)
     options = field.opciones
 
     # One-time initialization only
@@ -233,13 +263,18 @@ def render_select_input(field: SimpleField, current_value: Any = None) -> Any:
     )
 
 
-def render_date_input(field: SimpleField, current_value: Any = None) -> Optional[date]:
+def render_date_input(field: SimpleField, current_value: Any = None, key_prefix: Optional[str] = None) -> Optional[date]:
     """Renderiza un selector de fecha con calendario integrado.
 
     Note: Uses key-based session state only, no value= parameter to prevent
     'strong control overwrite' issues per design specification.
+
+    Args:
+        field: Field definition
+        current_value: Initial value (used only for first initialization)
+        key_prefix: Optional prefix for multi-instance fields
     """
-    key = _field_key(field)
+    key = _field_key(field, key_prefix)
 
     # One-time initialization only
     if key not in st.session_state:
@@ -259,6 +294,7 @@ def render_date_group_input(
     current_values: dict[str, Any],
     group_name: str,
     group_label: str,
+    key_prefix: Optional[str] = None,
 ) -> dict[str, Any]:
     """Renderiza un selector de fecha para un grupo de campos (dia, mes, ano).
 
@@ -267,6 +303,7 @@ def render_date_group_input(
         current_values: Valores actuales de los campos
         group_name: Nombre del grupo (para generar key única)
         group_label: Etiqueta visible para el selector
+        key_prefix: Optional prefix for multi-instance fields
 
     Returns:
         Diccionario con valores de dia, mes, ano extraídos de la fecha seleccionada
@@ -320,7 +357,8 @@ def render_date_group_input(
     if initial_date is None:
         initial_date = date.today()
 
-    group_key = f"date_group_{group_name}"
+    base_key = f"date_group_{group_name}"
+    group_key = f"{key_prefix}__{base_key}" if key_prefix else base_key
 
     # One-time initialization only
     if group_key not in st.session_state:
