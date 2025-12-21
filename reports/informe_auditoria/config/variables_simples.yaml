@@ -362,6 +362,7 @@ variables_simples:
     requerido: false
     min: 1
     max: 10
+    default: 1
     seccion: "Opinión de auditoría"
     ambito: local
     condicion_padre: "tipo_opinion == 'salvedades'"
@@ -372,6 +373,7 @@ variables_simples:
     requerido: false
     min: 1
     max: 10
+    default: 1
     seccion: "Opinión de auditoría"
     ambito: local
     condicion_padre: "tipo_opinion == 'desfavorable'"

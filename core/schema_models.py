@@ -40,6 +40,7 @@ class SimpleField(BaseModel):
     opciones: Optional[List[str]] = Field(None, description="Opciones para lista")
     min: Optional[float] = Field(None, description="Valor mínimo para números")
     max: Optional[float] = Field(None, description="Valor máximo para números")
+    default: Optional[Any] = Field(None, description="Valor por defecto")
     formula: Optional[str] = Field(None, description="Fórmula para campos calculados")
     calculado: bool = Field(False, description="Si el campo se calcula automáticamente")
     ambito: Optional[str] = Field("global", description="Ámbito del campo (global/local)")
