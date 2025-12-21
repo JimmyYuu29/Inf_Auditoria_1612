@@ -78,7 +78,12 @@ def render_text_input(field: SimpleField, current_value: Any = None, key_prefix:
 
     # One-time initialization only
     if key not in st.session_state:
-        st.session_state[key] = current_value or ""
+        if current_value is not None:
+            st.session_state[key] = current_value
+        elif field.default is not None:
+            st.session_state[key] = field.default
+        else:
+            st.session_state[key] = ""
 
     # Do NOT pass value= when using key= to avoid "strong control overwrite"
     return st.text_input(
@@ -104,7 +109,12 @@ def render_long_text_input(field: SimpleField, current_value: Any = None, key_pr
 
     # One-time initialization only
     if key not in st.session_state:
-        st.session_state[key] = current_value or ""
+        if current_value is not None:
+            st.session_state[key] = current_value
+        elif field.default is not None:
+            st.session_state[key] = field.default
+        else:
+            st.session_state[key] = ""
 
     # Do NOT pass value= when using key= to avoid "strong control overwrite"
     return st.text_area(
@@ -180,6 +190,11 @@ def render_number_input(field: SimpleField, current_value: Any = None, key_prefi
                 initial_value = float(current_value)
             except (TypeError, ValueError):
                 initial_value = min_val if min_val is not None else 0.0
+        elif field.default is not None:
+            try:
+                initial_value = float(field.default)
+            except (TypeError, ValueError):
+                initial_value = min_val if min_val is not None else 0.0
         elif min_val is not None:
             initial_value = min_val
         else:
@@ -251,6 +266,8 @@ def render_select_input(field: SimpleField, current_value: Any = None, key_prefi
     if key not in st.session_state:
         if current_value in options:
             st.session_state[key] = current_value
+        elif field.default in options:
+            st.session_state[key] = field.default
         else:
             st.session_state[key] = options[0]
 
@@ -278,7 +295,12 @@ def render_date_input(field: SimpleField, current_value: Any = None, key_prefix:
 
     # One-time initialization only
     if key not in st.session_state:
-        st.session_state[key] = _ensure_date(current_value) or date.today()
+        if current_value is not None:
+            st.session_state[key] = _ensure_date(current_value) or date.today()
+        elif field.default is not None:
+            st.session_state[key] = _ensure_date(field.default) or date.today()
+        else:
+            st.session_state[key] = date.today()
 
     # Do NOT pass value= when using key= to avoid "strong control overwrite"
     return st.date_input(
