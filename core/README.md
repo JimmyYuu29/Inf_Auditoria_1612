@@ -300,9 +300,10 @@ is_valid = validate_table_definition(table_def)
 
 **Funciones Principales:**
 
-- `render_field(field: SimpleField, session_state: Dict) -> Any`
+- `render_field(field: SimpleField, current_value: Any, key_prefix: str = None) -> Any`
   - Renderiza un campo de entrada según su tipo
   - Tipos: texto, numero, lista, fecha, texto_area, checkbox
+  - Soporta `key_prefix` para múltiples instancias (evita DuplicateWidgetID)
   - Gestiona estado en Streamlit session_state
   - Retorna valor introducido por el usuario
 
@@ -345,48 +346,56 @@ is_valid, errors = validate_form_data(data, fields)
 
 **Propósito:** Biblioteca de widgets personalizados de entrada para Streamlit.
 
-**Widgets Disponibles:**
+**Funciones de Generación de Claves:**
 
-- `text_input_widget(field: SimpleField) -> str`
+- `_field_key(field: SimpleField, key_prefix: str = None) -> str`
+  - Genera clave única para session_state
+  - Soporta prefijo para múltiples instancias del mismo campo
+  - Ejemplo: `_field_key(field, "salvedad_1")` → `"salvedad_1__field_numero_nota"`
+
+**Widgets Disponibles (todos soportan key_prefix):**
+
+- `render_text_input(field, current_value, key_prefix=None) -> str`
   - Input de texto con validación
   - Placeholder y ayuda contextual
   - Retorna string
 
-- `textarea_widget(field: SimpleField) -> str`
+- `render_long_text_input(field, current_value, key_prefix=None) -> str`
   - Área de texto multilínea
   - Altura ajustable
   - Retorna string multilínea
 
-- `number_input_widget(field: SimpleField) -> Union[int, float]`
+- `render_number_input(field, current_value, key_prefix=None) -> Union[int, float]`
   - Input numérico con validación
   - Min/max opcional
   - Retorna número
 
-- `select_widget(field: SimpleField) -> str`
+- `render_select_input(field, current_value, key_prefix=None) -> str`
   - Dropdown con opciones predefinidas
   - Búsqueda opcional
   - Retorna valor seleccionado
 
-- `date_input_widget(field: SimpleField) -> str`
+- `render_date_input(field, current_value, key_prefix=None) -> date`
   - Selector de fecha con calendario
   - Formato personalizable
-  - Retorna fecha formateada
+  - Retorna fecha
 
-- `checkbox_widget(field: SimpleField) -> bool`
-  - Checkbox simple
-  - Valor por defecto configurable
-  - Retorna True/False
+- `render_date_group_input(fields_group, current_values, group_name, group_label, key_prefix=None) -> dict`
+  - Agrupa campos día/mes/año en un solo selector de fecha
+  - Retorna diccionario con valores separados
 
-- `multiselect_widget(field: SimpleField) -> List[str]`
-  - Selector múltiple
-  - Opciones configurables
-  - Retorna lista de valores seleccionados
-
-**Uso:**
+**Uso Multi-Issue:**
 ```python
-from report_platform.core.input_widgets import text_input_widget
+from core.input_widgets import render_number_input
 
-value = text_input_widget(field)
+# Sin prefijo (instancia única)
+value = render_number_input(field, current_value)
+
+# Con prefijo (múltiples instancias)
+for i in range(1, n_issues + 1):
+    with st.expander(f"Salvedad {i}"):
+        value = render_number_input(field, current_value, key_prefix=f"salvedad_{i}")
+        # Almacenar como: data[f"salvedad_{i}__{field.id}"] = value
 ```
 
 ---
