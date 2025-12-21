@@ -1,5 +1,7 @@
 # Arquitectura de la Plataforma de Generación de Informes
 
+**Versión:** 1.2.0 (20251220)
+
 ## Resumen
 
 Esta plataforma implementa un sistema modular para generación de documentos Word basado en:

@@ -252,4 +252,9 @@ Jimmy - Forvis Mazars España
 
 ## Versión
 
-1.0.0
+1.2.0 (20251220)
+
+### Historial de cambios
+
+- **1.2.0 (20251220)**: Navegación UI estable (radio en lugar de tabs), flujo de entrada en dos fases para salvedades/desfavorable, soporte multi-issue mejorado
+- **1.0.0**: Versión inicial
