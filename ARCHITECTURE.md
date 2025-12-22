@@ -1,5 +1,7 @@
 # Arquitectura de la Plataforma de Generación de Informes
 
+**Versión:** 1.2.0 (20251220)
+
 ## Resumen
 
 Esta plataforma implementa un sistema modular para generación de documentos Word basado en:
@@ -283,7 +285,7 @@ class XMLWordEngineAdapter:
 **Propósito**: Generación dinámica de controles Streamlit
 
 **Funciones principales**:
-- `render_field(field, session_state)` → Valor
+- `render_field(field, session_state, key_prefix=None)` → Valor
 - `render_conditional_variable(var, current_value)` → Valor
 - `validate_form_data(fields, data)` → `(bool, List[str])`
 - `render_section_fields(section_name, fields, context)` → `Dict`
@@ -299,6 +301,16 @@ field = SimpleField(
         valor="salvedades"  # Solo mostrar si tipo_opinion == salvedades
     )
 )
+```
+
+**Soporte Multi-Issue (key_prefix)**:
+```python
+# Renderizado de múltiples instancias del mismo campo
+for i in range(1, n_issues + 1):
+    key_prefix = f"salvedad_{i}"
+    with st.expander(f"Salvedad {i}"):
+        value = render_field(field, current_value, key_prefix=key_prefix)
+        # Valor almacenado como: salvedad_1__numero_nota
 ```
 
 ### 7. metadata.py
@@ -390,12 +402,46 @@ def build_context(data_in: Dict[str, Any], config_dir: Path) -> Dict[str, Any]:
     # Calcular variables auxiliares
     # ...
 
+    # Determinar número de issues para manejo de plurales
+    n_issues = int(data_in.get('num_salvedades') or 1)
+    context['_n_issues'] = n_issues
+
     # Procesar bloques de texto
     processor = BloquesTextoProcessor(config_dir)
     bloques = processor.procesar_todos(context)
     context.update(bloques)
 
+    # Generar múltiples párrafos si N > 1
+    if n_issues > 1:
+        # Renderizar N instancias del template
+        paragraphs = []
+        for i in range(1, n_issues + 1):
+            tmp_context = context.copy()
+            # Mapear campos compuestos: salvedad_1__numero_nota -> numero_nota
+            for key, value in data_in.items():
+                if key.startswith(f"salvedad_{i}__"):
+                    original_field = key[len(f"salvedad_{i}__"):]
+                    tmp_context[original_field] = value
+            rendered = processor._renderizar_plantilla(template, tmp_context)
+            paragraphs.append(rendered)
+        context['parrafo_fundamento_calificacion'] = '\n\n'.join(paragraphs)
+
+    # Aplicar marcadores de plural
+    context = apply_plural_markers(context, n_issues)
+
     return context
+
+def apply_plural_markers(text: str, n: int) -> str:
+    """
+    Convierte marcadores de plural según el conteo.
+
+    Ejemplos:
+    - "la(s)" -> "la" (n=1) o "las" (n>1)
+    - "cuestión(es)" -> "cuestión" (n=1) o "cuestiones" (n>1)
+    - "una/varias incorrección(es)" -> "una incorrección" / "varias incorrecciones"
+    """
+    # Implementación con regex para cada patrón
+    ...
 ```
 
 ### config/variables_simples.yaml

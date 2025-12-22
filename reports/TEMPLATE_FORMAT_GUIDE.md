@@ -525,10 +525,93 @@ Para dudas o problemas con la migración, consultar la documentación del proyec
 
 ---
 
+---
+
+## Soporte Multi-Issue (Múltiples Cuestiones)
+
+### Descripción
+
+El sistema soporta la entrada de múltiples cuestiones para opiniones con salvedades o desfavorables. Cuando el usuario indica N > 1 cuestiones:
+
+1. **UI**: Se renderizan N expanders colapsados, cada uno con un conjunto completo de campos
+2. **Almacenamiento**: Los valores se guardan con claves compuestas: `salvedad_1__numero_nota`, `salvedad_2__numero_nota`, etc.
+3. **Generación**: Se producen N párrafos en el documento Word
+4. **Plurales**: Se convierten automáticamente los marcadores de plural
+
+### Configuración en variables_simples.yaml
+
+```yaml
+variables_simples:
+  # Campo para especificar el número de cuestiones
+  - id: num_salvedades
+    nombre: "Número de salvedades"
+    tipo: numero
+    min: 1
+    max: 10
+    ambito: local
+    condicion_padre: "tipo_opinion == 'salvedades'"
+
+  - id: num_desfavorables
+    nombre: "Número de cuestiones (desfavorable)"
+    tipo: numero
+    min: 1
+    max: 10
+    ambito: local
+    condicion_padre: "tipo_opinion == 'desfavorable'"
+```
+
+### Configuración en variables_condicionales.yaml
+
+```yaml
+variables_condicionales:
+  - id: tipo_opinion
+    opciones:
+      - valor: "salvedades"
+        variables_asociadas:
+          - motivo_calificacion
+          - num_salvedades  # Añadir el campo de conteo
+
+      - valor: "desfavorable"
+        variables_asociadas:
+          - descripcion_desfavorable
+          - num_desfavorables  # Añadir el campo de conteo
+```
+
+### Marcadores de Plural en Plantillas
+
+Use marcadores de plural que el sistema convertirá automáticamente:
+
+```yaml
+bloques_texto:
+  - id: parrafo_opinion
+    reglas:
+      - cuando: "tipo_opinion == 'salvedades'"
+        plantilla: |
+          Excepto por la(s) cuestión(es) descrita(s) en la sección "Fundamento de la
+          opinión con salvedades", expresamos que...
+```
+
+**Marcadores soportados:**
+
+| Marcador | Singular (N=1) | Plural (N>1) |
+|----------|----------------|--------------|
+| `la(s)` | la | las |
+| `cuestión(es)` | cuestión | cuestiones |
+| `descrita(s)` | descrita | descritas |
+| `indicada(s)` | indicada | indicadas |
+| `incorrección(es)` | incorrección | incorrecciones |
+| `material(es)` | material | materiales |
+| `limitación(es)` | limitación | limitaciones |
+| `una/varias incorrección(es) material(es)` | una incorrección material | varias incorrecciones materiales |
+| `una/varias limitación(es) al alcance` | una limitación al alcance | varias limitaciones al alcance |
+
+---
+
 ## Historial de Cambios
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| 2.1 | Dic 2025 | Añadido soporte multi-issue y marcadores de plural |
 | 2.0 | Dic 2025 | Estandarización completa del formato |
 | 1.0 | - | Formato inicial (deprecado) |
 

@@ -341,6 +341,10 @@ def render_local_fields_for_condition(
     """
     Renderiza los campos locales asociados a una variable condicional.
 
+    Supports multi-issue mode for salvedades and desfavorable opinions:
+    - When num_salvedades > 1: renders N expanders with duplicate field sets
+    - When num_desfavorables > 1: renders N expanders with duplicate field sets
+
     Args:
         condition_var_id: ID de la variable condicional padre
         condition_value: Valor actual de la variable condicional
@@ -399,56 +403,199 @@ def render_local_fields_for_condition(
 
         if new_fields:
             st.markdown("---")
-            st.markdown(f"**📝 Campos asociados:**")
 
-            # Agrupar por sección para mejor organización
-            fields_by_section = {}
+            # Check for multi-issue mode
+            tipo_opinion = context.get('tipo_opinion')
+            motivo_calificacion = context.get('motivo_calificacion')
+
+            # TWO-PHASE INPUT: Sort fields so num_salvedades/num_desfavorables appear first
+            num_fields = []
+            other_fields = []
+            for f in new_fields:
+                if f.id in ('num_salvedades', 'num_desfavorables'):
+                    num_fields.append(f)
+                else:
+                    other_fields.append(f)
+            new_fields = num_fields + other_fields
+
+            # Determine if we're in multi-issue mode
+            n_issues = 1
+            issue_type = None
+            expander_label_prefix = None
+
+            # Salvedades multi-issue: triggered when rendering motivo_calificacion's local fields
+            if (tipo_opinion == 'salvedades' and
+                condition_var_id == 'motivo_calificacion' and
+                motivo_calificacion in ('incorreccion', 'limitacion')):
+                try:
+                    n_issues = int(context.get('num_salvedades') or 1)
+                    n_issues = max(1, min(10, n_issues))  # clamp 1-10
+                except (ValueError, TypeError):
+                    n_issues = 1
+                if n_issues > 1:
+                    issue_type = 'salvedad'
+                    expander_label_prefix = 'Salvedad'
+
+            # Desfavorable multi-issue: triggered when rendering tipo_opinion's local fields
+            elif (tipo_opinion == 'desfavorable' and condition_var_id == 'tipo_opinion'):
+                try:
+                    n_issues = int(context.get('num_desfavorables') or 1)
+                    n_issues = max(1, min(10, n_issues))  # clamp 1-10
+                except (ValueError, TypeError):
+                    n_issues = 1
+                if n_issues > 1:
+                    issue_type = 'desfavorable'
+                    expander_label_prefix = 'Cuestión desfavorable'
+
+            # TWO-PHASE RENDERING: First render num_* fields, then render content fields
+            # Phase 1: Render num_salvedades/num_desfavorables BEFORE expanders
+            num_field_rendered = False
             for field in new_fields:
-                section = getattr(field, 'seccion', 'Campos adicionales')
-                if section not in fields_by_section:
-                    fields_by_section[section] = []
-                fields_by_section[section].append(field)
+                if field.id in ('num_salvedades', 'num_desfavorables'):
+                    if field.id not in rendered_local_fields:
+                        st.markdown(f"**📝 Campos asociados:**")
+                        value = render_field(field, context.get(field.id))
+                        if value is not None:
+                            values[field.id] = value
+                            context[field.id] = value
+                        rendered_local_fields.add(field.id)
+                        num_field_rendered = True
 
-            for section, fields in fields_by_section.items():
-                st.caption(f"*{section}*")
-                for field in fields:
-                    # Skip if already rendered
-                    if field.id in rendered_local_fields:
-                        continue
+            # Re-read n_issues from context after rendering num_* field
+            if tipo_opinion == 'salvedades':
+                try:
+                    n_issues = int(context.get('num_salvedades') or 1)
+                    n_issues = max(1, min(10, n_issues))
+                except (ValueError, TypeError):
+                    n_issues = 1
+                if n_issues > 1:
+                    issue_type = 'salvedad'
+                    expander_label_prefix = 'Salvedad'
+            elif tipo_opinion == 'desfavorable' and condition_var_id == 'tipo_opinion':
+                try:
+                    n_issues = int(context.get('num_desfavorables') or 1)
+                    n_issues = max(1, min(10, n_issues))
+                except (ValueError, TypeError):
+                    n_issues = 1
+                if n_issues > 1:
+                    issue_type = 'desfavorable'
+                    expander_label_prefix = 'Cuestión desfavorable'
 
-                    # Verificar si es un grupo de fecha
-                    grupo = getattr(field, 'grupo', None)
-                    if grupo:
-                        if grupo in processed_groups:
+            # Get remaining fields (exclude already rendered num_* fields)
+            remaining_fields = [f for f in new_fields if f.id not in rendered_local_fields]
+
+            # Multi-issue rendering with expanders
+            if issue_type and n_issues > 1 and remaining_fields:
+                if not num_field_rendered:
+                    st.markdown(f"**📝 Campos asociados ({n_issues} {issue_type}s):**")
+
+                for i in range(1, n_issues + 1):
+                    key_prefix = f"{issue_type}_{i}"
+                    with st.expander(f"{expander_label_prefix} {i}", expanded=False):
+                        for field in remaining_fields:
+                            # Skip num_salvedades/num_desfavorables from multi-rendering
+                            if field.id in ('num_salvedades', 'num_desfavorables'):
+                                continue
+
+                            # Verificar si es un grupo de fecha
+                            grupo = getattr(field, 'grupo', None)
+                            if grupo:
+                                group_key = f"{key_prefix}__{grupo}"
+                                if group_key in processed_groups:
+                                    continue
+
+                                from core.ui_runtime import get_date_group_label
+
+                                if grupo in date_groups:
+                                    from core.input_widgets import render_date_group_input
+                                    group_fields = date_groups[grupo]
+                                    current_values = {f.id: context.get(f.id) for f in group_fields.values()}
+                                    group_label = get_date_group_label(group_fields, plugin_config['config_dir'])
+                                    result = render_date_group_input(
+                                        group_fields,
+                                        current_values,
+                                        grupo,
+                                        group_label,
+                                        key_prefix=key_prefix,
+                                    )
+                                    # Store with composite keys
+                                    for field_id, val in result.items():
+                                        composite_key = f"{key_prefix}__{field_id}"
+                                        values[composite_key] = val
+                                        # Backfill first instance to original keys
+                                        if i == 1:
+                                            values[field_id] = val
+                                            context[field_id] = val
+                                    processed_groups.add(group_key)
+                                continue
+
+                            # Campo individual
+                            value = render_field(field, context.get(field.id), key_prefix=key_prefix)
+                            if value is not None:
+                                composite_key = f"{key_prefix}__{field.id}"
+                                values[composite_key] = value
+                                # Backfill first instance to original keys for N=1 compatibility
+                                if i == 1:
+                                    values[field.id] = value
+                                    context[field.id] = value
+
+                # Mark all fields as rendered to avoid re-rendering
+                for field in remaining_fields:
+                    rendered_local_fields.add(field.id)
+
+            elif remaining_fields:
+                # Standard single-instance rendering
+                if not num_field_rendered:
+                    st.markdown(f"**📝 Campos asociados:**")
+
+                # Agrupar por sección para mejor organización
+                fields_by_section = {}
+                for field in remaining_fields:
+                    section = getattr(field, 'seccion', 'Campos adicionales')
+                    if section not in fields_by_section:
+                        fields_by_section[section] = []
+                    fields_by_section[section].append(field)
+
+                for section, fields in fields_by_section.items():
+                    st.caption(f"*{section}*")
+                    for field in fields:
+                        # Skip if already rendered
+                        if field.id in rendered_local_fields:
                             continue
 
-                        # Buscar todos los campos del grupo
-                        from core.ui_runtime import get_date_group_label
+                        # Verificar si es un grupo de fecha
+                        grupo = getattr(field, 'grupo', None)
+                        if grupo:
+                            if grupo in processed_groups:
+                                continue
 
-                        if grupo in date_groups:
-                            from core.input_widgets import render_date_group_input
-                            group_fields = date_groups[grupo]
-                            current_values = {f.id: context.get(f.id) for f in group_fields.values()}
-                            group_label = get_date_group_label(group_fields, plugin_config['config_dir'])
-                            result = render_date_group_input(
-                                group_fields,
-                                current_values,
-                                grupo,
-                                group_label,
-                            )
-                            values.update(result)
-                            processed_groups.add(grupo)
-                            # Mark all fields in the group as rendered
-                            for gf in group_fields.values():
-                                rendered_local_fields.add(gf.id)
-                        continue
+                            # Buscar todos los campos del grupo
+                            from core.ui_runtime import get_date_group_label
 
-                    # Campo individual
-                    value = render_field(field, context.get(field.id))
-                    if value is not None:
-                        values[field.id] = value
-                    # Mark field as rendered
-                    rendered_local_fields.add(field.id)
+                            if grupo in date_groups:
+                                from core.input_widgets import render_date_group_input
+                                group_fields = date_groups[grupo]
+                                current_values = {f.id: context.get(f.id) for f in group_fields.values()}
+                                group_label = get_date_group_label(group_fields, plugin_config['config_dir'])
+                                result = render_date_group_input(
+                                    group_fields,
+                                    current_values,
+                                    grupo,
+                                    group_label,
+                                )
+                                values.update(result)
+                                processed_groups.add(grupo)
+                                # Mark all fields in the group as rendered
+                                for gf in group_fields.values():
+                                    rendered_local_fields.add(gf.id)
+                            continue
+
+                        # Campo individual
+                        value = render_field(field, context.get(field.id))
+                        if value is not None:
+                            values[field.id] = value
+                        # Mark field as rendered
+                        rendered_local_fields.add(field.id)
 
     return values
 
@@ -786,19 +933,39 @@ def main():
     # transferencia_precio uses specialized table UI
     is_tp_report = report_id == 'transferencia_precio'
 
-    # Build tab list dynamically based on available content
-    tab_names = ["📝 Variables simples", "⚙️ Variables condicionales"]
+    # Build navigation list dynamically based on available content
+    nav_options = ["📝 Variables simples", "⚙️ Variables condicionales"]
     if has_tables or is_tp_report:
-        tab_names.append("📊 Tablas")
-        tab_names.append("🎨 Diseño de Tablas")
-    tab_names.append("📁 Archivos")
+        nav_options.append("📊 Tablas")
+        nav_options.append("🎨 Diseño de Tablas")
+    nav_options.append("📁 Archivos")
 
-    # Create tabs dynamically
-    tabs = st.tabs(tab_names)
-    tab_index = 0
+    # Initialize navigation state if not present
+    if 'main_nav' not in st.session_state:
+        st.session_state.main_nav = nav_options[0]
 
-    # Tab: Variables simples
-    with tabs[tab_index]:
+    # Ensure current selection is valid (in case options changed)
+    if st.session_state.main_nav not in nav_options:
+        st.session_state.main_nav = nav_options[0]
+
+    # Stateful navigation using radio (prevents tab jumping on rerun)
+    selected_nav = st.radio(
+        "Navegación",
+        options=nav_options,
+        index=nav_options.index(st.session_state.main_nav),
+        key="main_nav_radio",
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
+    # Update session state when selection changes
+    if selected_nav != st.session_state.main_nav:
+        st.session_state.main_nav = selected_nav
+
+    st.markdown("---")
+
+    # Render only the selected section
+    if st.session_state.main_nav == "📝 Variables simples":
         field_values = render_simple_fields_section(
             plugin_config,
             context,
@@ -807,35 +974,26 @@ def main():
             default_expanded=True,
         )
         context.update(field_values)
-    tab_index += 1
 
-    # Tab: Variables condicionales
-    with tabs[tab_index]:
+    elif st.session_state.main_nav == "⚙️ Variables condicionales":
         cond_values = render_conditional_variables_section(plugin_config, context)
         context.update(cond_values)
-    tab_index += 1
 
-    # Tab: Tablas (only if tables exist)
-    if has_tables or is_tp_report:
-        with tabs[tab_index]:
-            table_values = render_tables_section(plugin_config, context)
-            context.update(table_values)
-        tab_index += 1
+    elif st.session_state.main_nav == "📊 Tablas":
+        table_values = render_tables_section(plugin_config, context)
+        context.update(table_values)
 
-        # Tab: Diseño de Tablas
-        with tabs[tab_index]:
-            # Importar la función de diseño de tablas
-            from ui.table_design_ui import render_table_design_window
+    elif st.session_state.main_nav == "🎨 Diseño de Tablas":
+        # Importar la función de diseño de tablas
+        from ui.table_design_ui import render_table_design_window
 
-            # Renderizar la ventana de diseño de tablas
-            table_design_config = render_table_design_window()
+        # Renderizar la ventana de diseño de tablas
+        table_design_config = render_table_design_window()
 
-            # Guardar la configuración de diseño en el contexto
-            context['_table_design_config'] = table_design_config
-        tab_index += 1
+        # Guardar la configuración de diseño en el contexto
+        context['_table_design_config'] = table_design_config
 
-    # Tab: Archivos (always last)
-    with tabs[tab_index]:
+    elif st.session_state.main_nav == "📁 Archivos":
         st.header("📁 Archivos de configuración del informe")
         config_dir = plugin_config['config_dir']
         st.write(f"Directorio de configuración: `{config_dir}`")
@@ -920,7 +1078,7 @@ def main():
     st.markdown("---")
     st.markdown(
         "<div style='text-align: center; color: gray;'>"
-        "Plataforma de Generación de Informes v2.0 | "
+        "Plataforma de Generación de Informes v1.2.0 (20251220) | "
         "Desarrollado por Jimmy - Forvis Mazars España | "
         "Con funcionalidad de metadatos para reutilización"
         "</div>",

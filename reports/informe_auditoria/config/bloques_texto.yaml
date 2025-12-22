@@ -697,43 +697,141 @@ bloques_texto:
 
           (Si existen varias cuestiones clave de la auditoría, repetir la estructura anterior para cada CCA.)
 
-      # No EIP con AMRA voluntario
+      # ============== 0) No EIP No AMRA Voluntario ==============
+      - cuando: "tipo_entidad != 'EIP' and (amra_voluntario != 'si' or amra_voluntario is None)"
+        plantilla: ""
+
+      # ============== 1) OPINIÓN FAVORABLE ==============
+
+      # 1A) Favorable + NO going concern + NO otros_amra
       - cuando: "tipo_entidad != 'EIP' and amra_voluntario == 'si' and tipo_opinion == 'favorable' and incertidumbre_funcionamiento == 'no' and otros_amra == 'no'"
         plantilla: >
-          Aspectos más relevantes de la auditoría
-
-          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que, 
-          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de 
-          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto 
-          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión 
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que,
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión
           sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
 
-          Hemos determinado que no existen aspectos más relevantes de la auditoría que se deban comunicar 
+          Hemos determinado que no existen aspectos más relevantes de la auditoría que se deban comunicar
           en nuestro informe.
 
-      - cuando: "tipo_entidad != 'EIP' and amra_voluntario == 'si' and otros_amra == 'si'"
+    # 1B) Favorable + SÍ going concern + NO otros_amra
+      - cuando: "tipo_entidad != 'EIP' and amra_voluntario == 'si' and tipo_opinion == 'favorable' and incertidumbre_funcionamiento == 'si' and otros_amra == 'no'"
         plantilla: >
-          Aspectos más relevantes de la auditoría
-
-          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que, 
-          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de 
-          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto 
-          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión 
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que,
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión
           sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+          Excepto por la cuestión descrita en la sección Incertidumbre material relacionada con la empresa en funcionamiento,
+          hemos determinado que no existen otros riesgos más significativos considerados en la auditoría que se deban comunicar
+          en nuestro informe.
+
+      # 1C) Favorable + NO going concern + SÍ otros_amra
+      - cuando: "tipo_entidad != 'EIP' and amra_voluntario == 'si' and tipo_opinion == 'favorable' and incertidumbre_funcionamiento == 'no' and otros_amra == 'si'"
+        plantilla: >
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que,
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión
+          sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+          Hemos determinado que los riesgos que se describen a continuación son los riesgos más significativos considerados
+          en la auditoría que se deben comunicar en nuestro informe.
 
           {{ texto_intro_amra }}
 
           Título del Aspecto más relevante de la auditoría
 
-          Tal como se indica en la nota {{ numero_nota_kam }} de la memoria{{ sufijo_consolidada }} adjunta, 
+          Tal como se indica en la nota {{ numero_nota_kam }} de la memoria{{ sufijo_consolidada }} adjunta,
           {{ descripcion_kam_amra }}. Por ello, consideramos este aspecto como relevante en nuestra auditoría.
 
           Nuestros procedimientos de auditoría han incluido, entre otros, {{ procedimientos_auditoria_kam }}.
 
           (Si existen varios aspectos más relevantes, repetir la estructura anterior para cada AMRA.)
 
+      # 1D) Favorable + SÍ going concern + SÍ otros_amra
+      - cuando: "tipo_entidad != 'EIP' and amra_voluntario == 'si' and tipo_opinion == 'favorable' and incertidumbre_funcionamiento == 'si' and otros_amra == 'si'"
+        plantilla: >
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que,
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión
+          sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+          Además de la cuestión descrita en la sección Incertidumbre material relacionada con la empresa en funcionamiento,
+          hemos determinado que los riesgos que se describen a continuación son los riesgos más significativos considerados
+          en la auditoría que se deben comunicar en nuestro informe.
+
+          {{ texto_intro_amra }}
+
+          Título del Aspecto más relevante de la auditoría
+
+          Tal como se indica en la nota {{ numero_nota_kam }} de la memoria{{ sufijo_consolidada }} adjunta,
+          {{ descripcion_kam_amra }}. Por ello, consideramos este aspecto como relevante en nuestra auditoría.
+
+          Nuestros procedimientos de auditoría han incluido, entre otros, {{ procedimientos_auditoria_kam }}.
+
+          (Si existen varios aspectos más relevantes, repetir la estructura anterior para cada AMRA.)
+
+      # ============== 2) OPINIÓN NO FAVORABLE (salvedades / desfavorable / denegada) ==============
+
+      # 2A) No favorable + NO otros_amra
+      - cuando: "tipo_entidad != 'EIP' and tipo_opinion != 'favorable' and otros_amra == 'no'"
+        plantilla: >
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que,
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión
+          sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+          Excepto por la(s) cuestión(es) descrita(s) en la sección Fundamento de la
+          {{ si tipo_opinion=="desfavorable" }}opinión desfavorable{{ fin si }}
+          {{ si tipo_opinion=="denegada" }}denegación de opinión{{ fin si }}
+          {{ si tipo_opinion=="salvedades" }}opinión con salvedades{{ fin si }},
+          hemos determinado que no existen otros riesgos más significativos considerados en la auditoría que se deban comunicar
+          en nuestro informe.
+
+      # 2B) No favorable + SÍ otros_amra
+      - cuando: "tipo_entidad != 'EIP' and tipo_opinion != 'favorable' and otros_amra == 'si'"
+        plantilla: >
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que,
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión
+          sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+          Además de la(s) cuestión(es) descrita(s) en la sección Fundamento de la
+          {{ si tipo_opinion=="desfavorable" }}opinión desfavorable{{ fin si }}
+          {{ si tipo_opinion=="denegada" }}denegación de opinión{{ fin si }}
+          {{ si tipo_opinion=="salvedades" }}opinión con salvedades{{ fin si }},
+          hemos determinado que los siguientes son los riesgos más significativos considerados en la auditoría que se deben comunicar
+          en nuestro informe.
+
+          {{ texto_intro_amra }}
+
+          Título del Aspecto más relevante de la auditoría
+
+          Tal como se indica en la nota {{ numero_nota_kam }} de la memoria{{ sufijo_consolidada }} adjunta,
+          {{ descripcion_kam_amra }}. Por ello, consideramos este aspecto como relevante en nuestra auditoría.
+
+          Nuestros procedimientos de auditoría han incluido, entre otros, {{ procedimientos_auditoria_kam }}.
+
+          (Si existen varios aspectos más relevantes, repetir la estructura anterior para cada AMRA.)
+
+      - cuando: "tipo_entidad != 'EIP'"
+        plantilla: >
+          Los aspectos más relevantes de la auditoría son aquellos riesgos de incorrección material que,
+          según nuestro juicio profesional, han sido de la mayor significatividad en nuestra auditoría de
+          las {{ nombre_tipo_cuentas }} del periodo actual. Estos riesgos han sido tratados en el contexto
+          de nuestra auditoría de las cuentas anuales en su conjunto, y en la formación de nuestra opinión
+          sobre éstas, y no expresamos una opinión por separado sobre esos riesgos.
+
+      # ============== fallback ==============
       - cuando: "True"
         plantilla: ""
+
   # ============================================================================
   # SECCIÓN: OTRAS CUESTIONES
   # ============================================================================

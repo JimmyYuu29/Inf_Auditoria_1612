@@ -322,8 +322,108 @@ def calcular_variables_auxiliares(data_in: Dict[str, Any]) -> Dict[str, Any]:
     else:
         aux['texto_opinion_gestion_einf'] = ''
         aux['texto_fundamento_einf'] = ''
-    
+
     return aux
+
+
+def apply_plural_markers(text: str, n: int) -> str:
+    """
+    Automatically convert plural marker patterns based on the count.
+
+    Converts patterns like:
+    - "la(s)" -> "la" (n=1) or "las" (n>1)
+    - "cuestión(es)" -> "cuestión" (n=1) or "cuestiones" (n>1)
+    - "descrita(s)" -> "descrita" (n=1) or "descritas" (n>1)
+    - "indicada(s)" -> "indicada" (n=1) or "indicadas" (n>1)
+    - "incorrección(es)" -> "incorrección" (n=1) or "incorrecciones" (n>1)
+    - "material(es)" -> "material" (n=1) or "materiales" (n>1)
+    - "limitación(es)" -> "limitación" (n=1) or "limitaciones" (n>1)
+    - "una/varias incorrección(es) material(es)" -> singular/plural phrase
+    - "una/varias limitación(es) al alcance" -> singular/plural phrase
+
+    Args:
+        text: Text containing plural markers
+        n: Count of items (1 = singular, >1 = plural)
+
+    Returns:
+        Text with resolved plural forms
+    """
+    import re
+
+    if not text or not isinstance(text, str):
+        return text
+
+    # Define singular/plural replacements
+    if n == 1:
+        # Singular forms
+        replacements = [
+            # Common patterns with (s) suffix
+            (r'\bla\(s\)', 'la'),
+            (r'\bLa\(s\)', 'La'),
+            (r'\bdescrita\(s\)', 'descrita'),
+            (r'\bDescrita\(s\)', 'Descrita'),
+            (r'\bindicada\(s\)', 'indicada'),
+            (r'\bIndicada\(s\)', 'Indicada'),
+            # Noun patterns with (es) suffix
+            (r'\bcuestión\(es\)', 'cuestión'),
+            (r'\bCuestión\(es\)', 'Cuestión'),
+            (r'\bincorrección\(es\)', 'incorrección'),
+            (r'\bIncorrección\(es\)', 'Incorrección'),
+            (r'\blimitación\(es\)', 'limitación'),
+            (r'\bLimitación\(es\)', 'Limitación'),
+            (r'\bmaterial\(es\)', 'material'),
+            (r'\bMaterial\(es\)', 'Material'),
+            # Complex phrases with una/varias
+            (r'una/varias incorrección\(es\) material\(es\)', 'una incorrección material'),
+            (r'Una/varias incorrección\(es\) material\(es\)', 'Una incorrección material'),
+            (r'una/varias limitación\(es\) al alcance', 'una limitación al alcance'),
+            (r'Una/varias limitación\(es\) al alcance', 'Una limitación al alcance'),
+            (r'una/varias limitación\(es\)', 'una limitación'),
+            (r'Una/varias limitación\(es\)', 'Una limitación'),
+            (r'una/varias incorrección\(es\)', 'una incorrección'),
+            (r'Una/varias incorrección\(es\)', 'Una incorrección'),
+            # Generic una/varias handling
+            (r'\buna/varias\b', 'una'),
+            (r'\bUna/varias\b', 'Una'),
+        ]
+    else:
+        # Plural forms
+        replacements = [
+            # Common patterns with (s) suffix
+            (r'\bla\(s\)', 'las'),
+            (r'\bLa\(s\)', 'Las'),
+            (r'\bdescrita\(s\)', 'descritas'),
+            (r'\bDescrita\(s\)', 'Descritas'),
+            (r'\bindicada\(s\)', 'indicadas'),
+            (r'\bIndicada\(s\)', 'Indicadas'),
+            # Noun patterns with (es) suffix
+            (r'\bcuestión\(es\)', 'cuestiones'),
+            (r'\bCuestión\(es\)', 'Cuestiones'),
+            (r'\bincorrección\(es\)', 'incorrecciones'),
+            (r'\bIncorrección\(es\)', 'Incorrecciones'),
+            (r'\blimitación\(es\)', 'limitaciones'),
+            (r'\bLimitación\(es\)', 'Limitaciones'),
+            (r'\bmaterial\(es\)', 'materiales'),
+            (r'\bMaterial\(es\)', 'Materiales'),
+            # Complex phrases with una/varias
+            (r'una/varias incorrección\(es\) material\(es\)', 'varias incorrecciones materiales'),
+            (r'Una/varias incorrección\(es\) material\(es\)', 'Varias incorrecciones materiales'),
+            (r'una/varias limitación\(es\) al alcance', 'varias limitaciones al alcance'),
+            (r'Una/varias limitación\(es\) al alcance', 'Varias limitaciones al alcance'),
+            (r'una/varias limitación\(es\)', 'varias limitaciones'),
+            (r'Una/varias limitación\(es\)', 'Varias limitaciones'),
+            (r'una/varias incorrección\(es\)', 'varias incorrecciones'),
+            (r'Una/varias incorrección\(es\)', 'Varias incorrecciones'),
+            # Generic una/varias handling
+            (r'\buna/varias\b', 'varias'),
+            (r'\bUna/varias\b', 'Varias'),
+        ]
+
+    result = text
+    for pattern, replacement in replacements:
+        result = re.sub(pattern, replacement, result)
+
+    return result
 
 
 def build_context(data_in: Dict[str, Any], config_dir: Optional[Path] = None) -> Dict[str, Any]:
@@ -358,21 +458,97 @@ def build_context(data_in: Dict[str, Any], config_dir: Optional[Path] = None) ->
     """
     # 1. Iniciar con los datos de entrada
     context = dict(data_in)
-    
+
     # 2. Calcular variables auxiliares
     auxiliares = calcular_variables_auxiliares(data_in)
     context.update(auxiliares)
-    
+
     # 3. Calcular año anterior si no está presente
     if 'ano_cierre_ejercicio' in context and 'ano_cierre_anterior' not in context:
         context['ano_cierre_anterior'] = context['ano_cierre_ejercicio'] - 1
-    
-    # 4. Procesar todos los bloques de texto
+
+    # 4. Determine multi-issue count for plural handling
+    tipo_opinion = data_in.get('tipo_opinion', 'favorable')
+    motivo_calificacion = data_in.get('motivo_calificacion', '')
+
+    # Calculate n for plural markers
+    n_issues = 1
+    if tipo_opinion == 'salvedades':
+        try:
+            n_issues = int(data_in.get('num_salvedades') or 1)
+            n_issues = max(1, min(10, n_issues))
+        except (ValueError, TypeError):
+            n_issues = 1
+    elif tipo_opinion == 'desfavorable':
+        try:
+            n_issues = int(data_in.get('num_desfavorables') or 1)
+            n_issues = max(1, min(10, n_issues))
+        except (ValueError, TypeError):
+            n_issues = 1
+
+    # Store n for reference
+    context['_n_issues'] = n_issues
+
+    # 5. Procesar todos los bloques de texto
     processor = BloquesTextoProcessor(config_dir)
     bloques_renderizados = processor.procesar_todos(context)
     context.update(bloques_renderizados)
-    
-    logger.info(f"Contexto construido con {len(context)} variables")
+
+    # 6. Generate multi-paragraph fundamento if N > 1
+    if tipo_opinion in ('salvedades', 'desfavorable') and n_issues > 1:
+        # Get the single-instance template from bloques_texto.yaml
+        fundamento_template = None
+        for bloque in processor.bloques_texto:
+            if bloque.get('id') == 'parrafo_fundamento_calificacion':
+                for regla in bloque.get('reglas', []):
+                    condicion = regla.get('cuando', 'True')
+                    if processor._evaluar_condicion(condicion, context):
+                        fundamento_template = regla.get('plantilla', '')
+                        break
+                break
+
+        if fundamento_template:
+            paragraphs = []
+            for i in range(1, n_issues + 1):
+                # Build a temporary context for this instance
+                tmp_context = context.copy()
+
+                # Determine the key prefix based on opinion type
+                if tipo_opinion == 'salvedades':
+                    key_prefix = f"salvedad_{i}"
+                else:
+                    key_prefix = f"desfavorable_{i}"
+
+                # Map composite keys back to original field names
+                # Find all fields with this prefix in data_in
+                for key, value in data_in.items():
+                    if key.startswith(f"{key_prefix}__"):
+                        original_field = key[len(f"{key_prefix}__"):]
+                        tmp_context[original_field] = value
+
+                # For first instance, use original field values if composite not found
+                if i == 1:
+                    # Original fields are already in context
+                    pass
+
+                # Render the template for this instance
+                try:
+                    rendered = processor._renderizar_plantilla(fundamento_template, tmp_context)
+                    if rendered.strip():
+                        paragraphs.append(rendered.strip())
+                except Exception as e:
+                    logger.warning(f"Error rendering fundamento for instance {i}: {e}")
+
+            # Join paragraphs with double newlines
+            if paragraphs:
+                context['parrafo_fundamento_calificacion'] = '\n\n'.join(paragraphs)
+
+    # 7. Apply plural markers to all string values in context
+    for key, value in list(context.items()):
+        if isinstance(value, str) and ('(s)' in value or '(es)' in value or 'una/varias' in value):
+            context[key] = apply_plural_markers(value, n_issues)
+
+    logger.info(f"Contexto construido con {len(context)} variables (n_issues={n_issues})")
     return context
 
 
